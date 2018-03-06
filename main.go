@@ -8,8 +8,8 @@ import (
 
 func main() {
 	irc.Run(&irc.Config{
-		Server:   "irc.oftc.net",
-		Channels: "#dvdg",
+		Server:   "irc.oftc.net:6697",
+		Channels: []string{"#dvdg"},
 		User:     "dvdgbot",
 		Nick:     "dvdgbot",
 		Password: "",

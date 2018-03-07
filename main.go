@@ -7,15 +7,16 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/go-chat-bot/bot/irc"
-//	_ "github.com/go-chat-bot/plugins/chucknorris"
-//	_ "github.com/oddlid/dvdgbot/larsmonsen"
+	//	_ "github.com/go-chat-bot/plugins/chucknorris"
+	_ "github.com/oddlid/dvdgbot/larsmonsen"
+	_ "github.com/oddlid/dvdgbot/leet"
 	"github.com/urfave/cli"
 )
 
 const (
 	DEF_ADDR string = "irc.oftc.net:6697"
-	DEF_USER string = "bajsbot"
-	DEF_NICK string = "bajsbot"
+	DEF_USER string = "leetbot"
+	DEF_NICK string = "leetbot"
 )
 
 var (

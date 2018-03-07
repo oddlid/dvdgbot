@@ -7,8 +7,8 @@ LDFLAGS = -ldflags "-X main.VERSION=${VERSION} -X main.BUILD_DATE=${BUILD_TIME} 
 
 .DEFAULT_GOAL: $(BINARY)
 
-$(BINARY): $(SOURCES)
-	env CGO_ENABLED=0 go build ${LDFLAGS} -o $@ $^
+$(BINARY): $(SOURCES) larsmonsen/larsmonsen.go leet/leet.go
+	env CGO_ENABLED=0 go build ${LDFLAGS} -o $@ ${SOURCES}
 
 .PHONY: install
 install:

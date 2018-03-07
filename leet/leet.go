@@ -141,6 +141,6 @@ func init() {
 	bot.RegisterCommand(
 		"1337",
 		"Register 1337 event, or print stats",
-		"stats",
+		"[stats]",
 		leet)
 }

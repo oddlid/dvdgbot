@@ -5,7 +5,6 @@ RUN addgroup -g 1000 bajsbot && adduser -u 1000 -G bajsbot -D bajsbot
 
 RUN apk add --no-cache --update \
 		ca-certificates \
-		libcap \
 		tini \
 		&& \
 		rm -rf /var/cache/apk/*

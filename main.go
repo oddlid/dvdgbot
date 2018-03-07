@@ -7,8 +7,8 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/go-chat-bot/bot/irc"
-	_ "github.com/go-chat-bot/plugins/chucknorris"
-	_ "github.com/oddlid/dvdgbot/larsmonsen"
+//	_ "github.com/go-chat-bot/plugins/chucknorris"
+//	_ "github.com/oddlid/dvdgbot/larsmonsen"
 	"github.com/urfave/cli"
 )
 

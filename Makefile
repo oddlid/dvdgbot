@@ -1,9 +1,9 @@
-BINARY = dvdgbot.bin
-#VERSION = 0.0.1
+BINARY = bajsbot.bin
+VERSION = 2018-03-07
 SOURCES := $(wildcard *.go)
 COMMIT_ID := $(shell git describe --tags --always)
 BUILD_TIME := $(shell date +%FT%T%:z)
-LDFLAGS = -ldflags "-X main.BUILD_DATE=${BUILD_TIME} -X main.COMMIT_ID=${COMMIT_ID} -d -s -w"
+LDFLAGS = -ldflags "-X main.VERSION=${VERSION} -X main.BUILD_DATE=${BUILD_TIME} -X main.COMMIT_ID=${COMMIT_ID} -d -s -w"
 
 .DEFAULT_GOAL: $(BINARY)
 

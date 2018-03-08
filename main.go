@@ -11,6 +11,7 @@ import (
 	//_ "github.com/oddlid/dvdgbot/larsmonsen"
 	//_ "github.com/oddlid/dvdgbot/goodmorning"
 	//_ "github.com/oddlid/dvdgbot/leet"
+	_ "github.com/oddlid/dvdgbot/xkcdbot"
 	"github.com/urfave/cli"
 )
 

@@ -1,10 +1,14 @@
 package leet
 
 import (
+	"encoding/json"
 	"fmt"
+	"io"
+	"io/ioutil"
 	"os"
 	"sort"
 	"strconv"
+	"sync"
 	"time"
 
 	log "github.com/Sirupsen/logrus"
@@ -12,17 +16,21 @@ import (
 )
 
 const (
-	DEF_HOUR   int = 13
-	DEF_MINUTE int = 37
+	DEF_HOUR   int    = 13
+	DEF_MINUTE int    = 37
+	SCORE_FILE string = "/tmp/leetbot_scores.json"
 )
 
 var (
-	hour     int  = DEF_HOUR
-	minute   int  = DEF_MINUTE
-	isFirst  bool = true
-	botstart time.Time
-	scores   map[string]int
-	didTry   map[string]bool
+	isFirst    bool = true
+	cacheDirty bool = false
+	hour       int  = DEF_HOUR
+	minute     int  = DEF_MINUTE
+	callstack  int
+	botstart   time.Time
+	scores     map[string]int
+	didTry     map[string]bool
+	mx         sync.RWMutex
 )
 
 type KV struct {
@@ -31,6 +39,18 @@ type KV struct {
 }
 
 type KVList []KV
+
+func (kl KVList) Len() int {
+	return len(kl)
+}
+
+func (kl KVList) Less(i, j int) bool {
+	return kl[i].Val < kl[j].Val
+}
+
+func (kl KVList) Swap(i, j int) {
+	kl[i], kl[j] = kl[j], kl[i]
+}
 
 func rank() (KVList, int) {
 	kl := make(KVList, len(scores))
@@ -48,28 +68,86 @@ func rank() (KVList, int) {
 	return kl, nick_maxlen
 }
 
-func (kl KVList) Len() int {
-	return len(kl)
+func load(r io.Reader) error {
+	jb, err := ioutil.ReadAll(r)
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal(jb, &scores)
 }
 
-func (kl KVList) Less(i, j int) bool {
-	return kl[i].Val < kl[j].Val
+func save(w io.Writer) (int, error) {
+	jb, err := json.Marshal(scores)
+	if err != nil {
+		return 0, err
+	}
+	jb = append(jb, '\n')
+	return w.Write(jb)
 }
 
-func (kl KVList) Swap(i, j int) {
-	kl[i], kl[j] = kl[j], kl[i]
+func savestats() {
+	file, err := os.Create(SCORE_FILE)
+	if err != nil {
+		log.Errorf("Error opening %q for saving: %s", SCORE_FILE, err)
+		return
+	}
+	defer file.Close()
+	n, err := save(file)
+	if err != nil {
+		log.Errorf("Error saving json file %q: %s", SCORE_FILE, err)
+		return
+	}
+	log.Infof("Saved %d bytes of scores to %q", n, SCORE_FILE)
 }
 
-// tempBlockUser prevents a nick from entering more than once in 2 minutes
-func tempBlockUser(nick string) {
+func delayedSave() bool {
+	mx.RLock()
+	defer mx.RUnlock()
+	// nothing has changed, so return false to say we did nothing
+	if !cacheDirty {
+		return false
+	}
+
+	// if we've gotten to this point, we should be within the 2 minute timeframe where
+	// scores might be changed, so we wait 3 minutes just to be sure, and then save all in one go.
+	// Otherwise, if there's a lot of users triggering at the same time, we do a lot more disk writes than we need.
+	// Also, we try to limit the number of goroutines that will try to save, using a counter.
+	callstack++
+	if callstack == 1 {
+		time.AfterFunc(3*time.Minute, func() {
+			mx.Lock()
+			if cacheDirty {
+				savestats()
+				cacheDirty = false
+			}
+			callstack = 0
+			mx.Unlock()
+		})
+	}
+	return true
+}
+
+// score adds/substracts a users points, then prevents them from entering more than once in 2 minutes
+func score(nick string, points int) {
+	if didTry[nick] {
+		return
+	}
+
 	didTry[nick] = true
+	mx.Lock()
+	scores[nick] += points
+	cacheDirty = true
+	mx.Unlock()
+	// reset the nick lock as soon as we're out of the accepted timeframe again
 	time.AfterFunc(2*time.Minute, func() {
+		mx.Lock()
 		didTry[nick] = false
+		mx.Unlock()
 	})
 }
 
 func leet(cmd *bot.Cmd) (string, error) {
-	log.Debug("cmd.Args: %q", cmd.Args)
+	log.Debugf("cmd.Args: %q", cmd.Args)
 
 	if len(cmd.Args) == 1 && cmd.Args[0] == "stats" {
 		kl, max_nicklen := rank()
@@ -79,6 +157,8 @@ func leet(cmd *bot.Cmd) (string, error) {
 			str += fmt.Sprintf(fstr, kv.Key, kv.Val)
 		}
 		return str, nil
+	} else if len(cmd.Args) == 1 {
+		return fmt.Sprintf("Unrecognized argument: %s. Usage: !1337 [stats]", cmd.Args[0]), nil
 	}
 
 	// prevent ddos/spam
@@ -89,24 +169,31 @@ func leet(cmd *bot.Cmd) (string, error) {
 	t := time.Now()
 	if t.Hour() == hour && t.Minute() == minute {
 		if isFirst {
-			scores[cmd.User.Nick] += 2
+			score(cmd.User.Nick, 2)
+			mx.Lock()
 			isFirst = false
-			time.AfterFunc(1*time.Minute, func() {
+			mx.Unlock()
+			time.AfterFunc(2*time.Minute, func() {
+				mx.Lock()
 				isFirst = true
+				mx.Unlock()
 			})
 		} else {
-			scores[cmd.User.Nick]++
+			score(cmd.User.Nick, 1)
 		}
-		tempBlockUser(cmd.User.Nick)
 		return fmt.Sprintf("Whoop! %s total score: %d\n", cmd.User.Nick, scores[cmd.User.Nick]), nil
 	} else if t.Hour() == hour && t.Minute() == minute-1 {
-		scores[cmd.User.Nick]--
-		tempBlockUser(cmd.User.Nick)
+		score(cmd.User.Nick, -1)
 		return fmt.Sprintf("Too early, sucker! %s: %d\n", cmd.User.Nick, scores[cmd.User.Nick]), nil
 	} else if t.Hour() == hour && t.Minute() == minute+1 {
-		scores[cmd.User.Nick]--
-		tempBlockUser(cmd.User.Nick)
+		score(cmd.User.Nick, -1)
 		return fmt.Sprintf("Too late, sucker! %s: %d\n", cmd.User.Nick, scores[cmd.User.Nick]), nil
+	}
+
+	// score() sets cacheDirty, so if it's set, it means we matched within the timeframe above,
+	// which means at least one score was modified, so we save.
+	if cacheDirty {
+		delayedSave()
 	}
 
 	return "", nil
@@ -137,6 +224,17 @@ func init() {
 	didTry = make(map[string]bool)
 
 	pickupEnv()
+
+	file, err := os.Open(SCORE_FILE)
+	if err == nil {
+		err := load(file)
+		if err != nil {
+			log.Errorf("Error loading config from %q: %s", SCORE_FILE, err)
+		} else {
+			log.Infof("Loaded scores from %q", SCORE_FILE)
+		}
+		file.Close()
+	}
 
 	bot.RegisterCommand(
 		"1337",

@@ -1,13 +1,14 @@
-BINARY = bajsbot.bin
-VERSION = 2018-03-07
+BINARY := bajsbot.bin
+VERSION := 2018-03-09
 SOURCES := $(wildcard *.go)
+DEPS := larsmonsen/larsmonsen.go leet/leet.go xkcdbot/xkcdbot.go goodmorning/goodmorning.go
 COMMIT_ID := $(shell git describe --tags --always)
 BUILD_TIME := $(shell date +%FT%T%:z)
 LDFLAGS = -ldflags "-X main.VERSION=${VERSION} -X main.BUILD_DATE=${BUILD_TIME} -X main.COMMIT_ID=${COMMIT_ID} -d -s -w"
 
 .DEFAULT_GOAL: $(BINARY)
 
-$(BINARY): $(SOURCES) larsmonsen/larsmonsen.go leet/leet.go
+$(BINARY): $(SOURCES) $(DEPS)
 	env CGO_ENABLED=0 go build ${LDFLAGS} -o $@ ${SOURCES}
 
 .PHONY: install

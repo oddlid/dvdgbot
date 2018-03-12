@@ -26,7 +26,6 @@ var (
 	cacheDirty bool = false
 	hour       int  = DEF_HOUR
 	minute     int  = DEF_MINUTE
-	callstack  int
 	botstart   time.Time
 	scores     map[string]int
 	didTry     map[string]bool
@@ -77,7 +76,7 @@ func load(r io.Reader) error {
 }
 
 func save(w io.Writer) (int, error) {
-	jb, err := json.Marshal(scores)
+	jb, err := json.MarshalIndent(scores, "", "\t")
 	if err != nil {
 		return 0, err
 	}
@@ -112,18 +111,14 @@ func delayedSave() bool {
 	// scores might be changed, so we wait 3 minutes just to be sure, and then save all in one go.
 	// Otherwise, if there's a lot of users triggering at the same time, we do a lot more disk writes than we need.
 	// Also, we try to limit the number of goroutines that will try to save, using a counter.
-	callstack++
-	if callstack == 1 {
-		time.AfterFunc(3*time.Minute, func() {
-			mx.Lock()
-			if cacheDirty {
-				savestats()
-				cacheDirty = false
-			}
-			callstack = 0
-			mx.Unlock()
-		})
-	}
+	time.AfterFunc(3*time.Minute, func() {
+		mx.Lock()
+		if cacheDirty {
+			savestats()
+			cacheDirty = false
+		}
+		mx.Unlock()
+	})
 	return true
 }
 

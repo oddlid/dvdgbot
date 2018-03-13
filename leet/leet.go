@@ -161,6 +161,8 @@ func leet(cmd *bot.Cmd) (string, error) {
 		return "", nil
 	}
 
+	defer delayedSave() // after this point, stuff might be changed
+
 	t := time.Now()
 	if t.Hour() == hour && t.Minute() == minute {
 		if isFirst {
@@ -183,12 +185,6 @@ func leet(cmd *bot.Cmd) (string, error) {
 	} else if t.Hour() == hour && t.Minute() == minute+1 {
 		score(cmd.User.Nick, -1)
 		return fmt.Sprintf("Too late, sucker! %s: %d\n", cmd.User.Nick, scores[cmd.User.Nick]), nil
-	}
-
-	// score() sets cacheDirty, so if it's set, it means we matched within the timeframe above,
-	// which means at least one score was modified, so we save.
-	if cacheDirty {
-		delayedSave()
 	}
 
 	return "", nil

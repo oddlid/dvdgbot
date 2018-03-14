@@ -146,7 +146,7 @@ func leet(cmd *bot.Cmd) (string, error) {
 
 	if len(cmd.Args) == 1 && cmd.Args[0] == "stats" {
 		kl, max_nicklen := rank()
-		fstr := fmt.Sprintf("%s%d%s", "%-", max_nicklen, "s : %3d\n")
+		fstr := fmt.Sprintf("%s%d%s", "%-", max_nicklen, "s : %04d\n")
 		str := fmt.Sprintf("Stats since %s:\n", botstart.Format(time.RFC3339))
 		for _, kv := range kl {
 			str += fmt.Sprintf(fstr, kv.Key, kv.Val)
@@ -164,7 +164,7 @@ func leet(cmd *bot.Cmd) (string, error) {
 	defer delayedSave() // after this point, stuff might be changed
 
 	t := time.Now()
-	ts := fmt.Sprintf("[%d:%d:%d:%d]", t.Hour(), t.Minute(), t.Second(), t.Nanosecond())
+	ts := fmt.Sprintf("[%02d:%02d:%02d:%09d]", t.Hour(), t.Minute(), t.Second(), t.Nanosecond())
 	if t.Hour() == hour && t.Minute() == minute {
 		if isFirst {
 			score(cmd.User.Nick, 2)

@@ -110,7 +110,7 @@ func delayedSave() bool {
 	// if we've gotten to this point, we should be within the 2 minute timeframe where
 	// scores might be changed, so we wait 3 minutes just to be sure, and then save all in one go.
 	// Otherwise, if there's a lot of users triggering at the same time, we do a lot more disk writes than we need.
-	// Also, we try to limit the number of goroutines that will try to save, using a counter.
+	// Also, we try to limit the number of goroutines that will try to save, using a counter. (maybe, after more tests)
 	time.AfterFunc(3*time.Minute, func() {
 		mx.Lock()
 		if cacheDirty {
@@ -153,7 +153,7 @@ func leet(cmd *bot.Cmd) (string, error) {
 		}
 		return str, nil
 	} else if len(cmd.Args) == 1 {
-		return fmt.Sprintf("Unrecognized argument: %s. Usage: !1337 [stats]", cmd.Args[0]), nil
+		return fmt.Sprintf("Unrecognized argument: %q. Usage: !1337 [stats]", cmd.Args[0]), nil
 	}
 
 	// prevent ddos/spam
@@ -164,6 +164,7 @@ func leet(cmd *bot.Cmd) (string, error) {
 	defer delayedSave() // after this point, stuff might be changed
 
 	t := time.Now()
+	ts := fmt.Sprintf("[%d:%d:%d:%d]", t.Hour(), t.Minute(), t.Second(), t.Nanosecond())
 	if t.Hour() == hour && t.Minute() == minute {
 		if isFirst {
 			score(cmd.User.Nick, 2)
@@ -178,13 +179,13 @@ func leet(cmd *bot.Cmd) (string, error) {
 		} else {
 			score(cmd.User.Nick, 1)
 		}
-		return fmt.Sprintf("Whoop! %s total score: %d\n", cmd.User.Nick, scores[cmd.User.Nick]), nil
+		return fmt.Sprintf("%s Whoop! %s total score: %d\n", ts, cmd.User.Nick, scores[cmd.User.Nick]), nil
 	} else if t.Hour() == hour && t.Minute() == minute-1 {
 		score(cmd.User.Nick, -1)
-		return fmt.Sprintf("Too early, sucker! %s: %d\n", cmd.User.Nick, scores[cmd.User.Nick]), nil
+		return fmt.Sprintf("%s Too early, sucker! %s: %d\n", ts, cmd.User.Nick, scores[cmd.User.Nick]), nil
 	} else if t.Hour() == hour && t.Minute() == minute+1 {
 		score(cmd.User.Nick, -1)
-		return fmt.Sprintf("Too late, sucker! %s: %d\n", cmd.User.Nick, scores[cmd.User.Nick]), nil
+		return fmt.Sprintf("%s Too late, sucker! %s: %d\n", ts, cmd.User.Nick, scores[cmd.User.Nick]), nil
 	}
 
 	return "", nil

@@ -15,6 +15,18 @@ const (
 	SKOJBOT_FILE string = "/tmp/skojbot.json"
 )
 
+type IRCMsg struct {
+	TS      time.Time `json:"timestamp"`
+	Channel string    `json:"ircchannel"`
+	Nick    string    `json:"nick"`
+	Msg     string    `json:"message"`
+}
+
+type MsgCache struct {
+	BufSize int      `json:"bufsize"`
+	Entries []IRCMsg `json:"entries"`
+}
+
 type Quote struct {
 	Index   int       `json:"index"`
 	Votes   int       `json:"votes"`
@@ -46,6 +58,52 @@ func NewQuote(bynick, nick, content string, idx int) *Quote {
 		Nick:    nick,
 		Content: content,
 	}
+}
+
+func NewMsgCache(bufsize int) *MsgCache {
+	return &MsgCache{
+		BufSize: bufsize,
+		Entries: make([]IRCMsg, 0, bufsize),
+	}
+}
+
+func (mc *MsgCache) Len() int {
+	return len(mc.Entries)
+}
+
+//func (mc *MsgCache) NextFree() int {
+//	l := mc.Len()
+//	if l < mc.BufSize {
+//		return l
+//	}
+//	return l
+//}
+
+func (mc *MsgCache) Full() bool {
+	return mc.Len() == mc.BufSize
+}
+
+func (mc *MsgCache) Add(msg IRCMsg) {
+	if mc.Full() {
+		// shift entries
+		for i := 0; i < mc.Len()-1; i++ {
+			mc.Entries[i] = mc.Entries[i+1]
+		}
+	}
+	mc.Entries[mc.Len()-1] = msg
+}
+
+// This is in serious need of getting looked at while sober...
+func (mc *MsgCache) GetRange(rollback, howmany int) ([]IRCMsg, error) {
+	msgs := IRCMsg{}
+	idx := mc.Len() - rollback - 1
+	if idx < 0 {
+		return msgs, fmt.Errorf("Bad rollback index: %d", rollback)
+	}
+	if (idx + howmany) >= mc.Len() { // bad math, drunk...
+		return msgs, fmt.Errorf("Fuck off, I should be sleeping...")
+	}
+	return mc.Entries[idx:howmany] // maybe not right at all
 }
 
 func (q *Quote) Vote(int points) int {

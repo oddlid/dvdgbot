@@ -1,4 +1,4 @@
-package skojare
+package quote
 
 import (
 	"encoding/json"

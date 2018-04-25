@@ -80,6 +80,7 @@ func (s *ScoreData) LoadFile(filename string) *ScoreData {
 		log.Error(err)
 		return NewScoreData()
 	}
+	log.Info("Leet stats (re)loaded from file")
 	return s
 }
 
@@ -363,25 +364,46 @@ func (s *ScoreData) TryScore(channel, nick string, t time.Time) (bool, string) {
 	return false, ts
 }
 
+func withinTimeFrame(t time.Time) bool {
+	if t.Hour() != hour {
+		return false
+	}
+	curMin := t.Minute()
+	if curMin != minute && curMin != minute-1 && curMin != minute+1 {
+		return false
+	}
+	return true
+}
+
 func leet(cmd *bot.Cmd) (string, error) {
 	t := time.Now() // save time as early as possible
 
+	// handle arguments
 	if len(cmd.Args) == 1 && cmd.Args[0] == "stats" {
 		return scoreData.Stats(cmd.Channel), nil
 	} else if len(cmd.Args) >= 1 {
 		return fmt.Sprintf("Unrecognized argument: %q. Usage: !1337 [stats]", cmd.Args[0]), nil
 	}
 
-	if scoreData.DidTry(cmd.Channel, cmd.User.Nick) {
-		return "", fmt.Errorf("%s already tried within allowed timeframe", cmd.User.Nick)
+	// don't give a fuck outside accepted time frame
+	if !withinTimeFrame(t) {
+		return "", nil
 	}
 
+	// is the user spamming?
+	if scoreData.DidTry(cmd.Channel, cmd.User.Nick) {
+		//return "", fmt.Errorf("%s already tried within allowed timeframe", cmd.User.Nick)
+		return fmt.Sprintf("%s: Stop spamming!", cmd.User.Nick), nil
+	}
+
+	success, msg := scoreData.TryScore(cmd.Channel, cmd.User.Nick, t)
+
+	// at this point, data might have changed, and should be saved
 	saveScheduled := scoreData.ScheduleSave(SCORE_FILE)
 	if !saveScheduled {
 		log.Debug("Ignoring redundant save scheduling")
 	}
 
-	success, msg := scoreData.TryScore(cmd.Channel, cmd.User.Nick, t)
 	if success {
 		return msg, nil
 	}

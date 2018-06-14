@@ -24,11 +24,9 @@ const (
 )
 
 var (
-	isFirst    bool = true
-	cacheDirty bool = false
-	hour       int  = DEF_HOUR
-	minute     int  = DEF_MINUTE
-	scoreData  *ScoreData
+	hour      int = DEF_HOUR
+	minute    int = DEF_MINUTE
+	scoreData *ScoreData
 )
 
 type KV struct {

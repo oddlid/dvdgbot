@@ -6,9 +6,11 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"os/signal"
 	"sort"
 	"strconv"
 	"sync"
+	"syscall"
 	"time"
 
 	log "github.com/Sirupsen/logrus"
@@ -26,23 +28,24 @@ var (
 	cacheDirty bool = false
 	hour       int  = DEF_HOUR
 	minute     int  = DEF_MINUTE
-	//botstart   time.Time
-	//scores     map[string]int
-	//didTry     map[string]bool
-	//mx         sync.RWMutex
 	scoreData  *ScoreData
 )
 
+type KV struct {
+	Key string
+	Val int
+}
+
+type KVList []KV
+
 type User struct {
 	sync.RWMutex
-	//Nick   string `json:"-"`
 	Points int `json:"score"`
 	didTry bool
 }
 
 type Channel struct {
 	sync.RWMutex
-	//Name        string           `json:"-"`
 	Users       map[string]*User `json:"users"`
 	singlePoint bool             // instead of "isFirst", so that it defaults to false and means less logic to write
 }
@@ -53,11 +56,80 @@ type ScoreData struct {
 	saveInProgress bool
 }
 
+func (kl KVList) Len() int {
+	return len(kl)
+}
+
+func (kl KVList) Less(i, j int) bool {
+	return kl[i].Val < kl[j].Val
+}
+
+func (kl KVList) Swap(i, j int) {
+	kl[i], kl[j] = kl[j], kl[i]
+}
+
 func NewScoreData() *ScoreData {
 	return &ScoreData{
 		BotStart: time.Now(),
 		Channels: make(map[string]*Channel),
 	}
+}
+
+func (u *User) Score(points int) (bool, int) {
+	if u.didTry {
+		return false, u.Points
+	}
+	u.Lock()
+	u.Points += points
+	u.didTry = true
+	u.Unlock()
+	time.AfterFunc(2*time.Minute, func() {
+		u.Lock()
+		u.didTry = false
+		u.Unlock()
+	})
+	return true, u.Points
+}
+
+func (c *Channel) Get(nick string) *User {
+	c.RLock()
+	user, found := c.Users[nick]
+	c.RUnlock()
+	if !found {
+		user = &User{}
+		c.Lock()
+		c.Users[nick] = user
+		c.Unlock()
+	}
+	return user
+}
+
+func (c *Channel) SetSinglePoint(val bool) {
+	c.Lock()
+	c.singlePoint = val
+	c.Unlock()
+}
+
+func (c *Channel) GetScoreForEntry(t time.Time) (int, int) {
+	if t.Hour() == hour {
+		if t.Minute() == minute-1 {
+			return -1, -1
+		} else if t.Minute() == minute+1 {
+			return -1, 1
+		} else if t.Minute() == minute {
+			if !c.singlePoint { // means first score within time frame
+				c.SetSinglePoint(true) // next within time frame only gets 1 point
+				// reset after 2 minutes
+				time.AfterFunc(2*time.Minute, func() {
+					c.SetSinglePoint(false)
+				})
+				return 2, 0
+			} else {
+				return 1, 0
+			}
+		}
+	}
+	return 0, 0
 }
 
 func (sd *ScoreData) Load(r io.Reader) error {
@@ -123,15 +195,6 @@ func (s *ScoreData) ScheduleSave(filename string) bool {
 	return s.saveInProgress
 }
 
-func (c *Channel) Get(nick string) *User {
-	user, found := c.Users[nick]
-	if !found {
-		user = &User{}
-		c.Users[nick] = user
-	}
-	return user
-}
-
 func (s *ScoreData) Get(channel string) *Channel {
 	c, found := s.Channels[channel]
 	if !found {
@@ -141,22 +204,6 @@ func (s *ScoreData) Get(channel string) *Channel {
 		s.Channels[channel] = c
 	}
 	return c
-}
-
-func (u *User) Score(points int) (bool, int) {
-	if u.didTry {
-		return false, u.Points
-	}
-	u.Lock()
-	u.Points += points
-	u.didTry = true
-	u.Unlock()
-	time.AfterFunc(2*time.Minute, func() {
-		u.Lock()
-		u.didTry = false
-		u.Unlock()
-	})
-	return true, u.Points
 }
 
 func (s *ScoreData) Rank(channel string) (KVList, int, error) {
@@ -179,115 +226,6 @@ func (s *ScoreData) Rank(channel string) (KVList, int, error) {
 	return kl, nick_maxlen, nil
 }
 
-type KV struct {
-	Key string
-	Val int
-}
-
-type KVList []KV
-
-func (kl KVList) Len() int {
-	return len(kl)
-}
-
-func (kl KVList) Less(i, j int) bool {
-	return kl[i].Val < kl[j].Val
-}
-
-func (kl KVList) Swap(i, j int) {
-	kl[i], kl[j] = kl[j], kl[i]
-}
-
-//func rank() (KVList, int) {
-//	kl := make(KVList, len(scores))
-//	i := 0
-//	nick_maxlen := 0
-//	for k, v := range scores {
-//		kl[i] = KV{k, v}
-//		i++
-//		nlen := len(k)
-//		if nlen > nick_maxlen {
-//			nick_maxlen = nlen
-//		}
-//	}
-//	sort.Sort(sort.Reverse(kl))
-//	return kl, nick_maxlen
-//}
-
-//func load(r io.Reader) error {
-//	jb, err := ioutil.ReadAll(r)
-//	if err != nil {
-//		return err
-//	}
-//	return json.Unmarshal(jb, &scores)
-//}
-
-//func save(w io.Writer) (int, error) {
-//	jb, err := json.MarshalIndent(scores, "", "\t")
-//	if err != nil {
-//		return 0, err
-//	}
-//	jb = append(jb, '\n')
-//	return w.Write(jb)
-//}
-
-//func savestats() {
-//	file, err := os.Create(SCORE_FILE)
-//	if err != nil {
-//		log.Errorf("Error opening %q for saving: %s", SCORE_FILE, err)
-//		return
-//	}
-//	defer file.Close()
-//	n, err := save(file)
-//	if err != nil {
-//		log.Errorf("Error saving json file %q: %s", SCORE_FILE, err)
-//		return
-//	}
-//	log.Infof("Saved %d bytes of scores to %q", n, SCORE_FILE)
-//}
-
-//func delayedSave() bool {
-//	mx.RLock()
-//	defer mx.RUnlock()
-//	// nothing has changed, so return false to say we did nothing
-//	if !cacheDirty {
-//		return false
-//	}
-//
-//	// if we've gotten to this point, we should be within the 2 minute timeframe where
-//	// scores might be changed, so we wait 3 minutes just to be sure, and then save all in one go.
-//	// Otherwise, if there's a lot of users triggering at the same time, we do a lot more disk writes than we need.
-//	// Also, we try to limit the number of goroutines that will try to save, using a counter. (maybe, after more tests)
-//	time.AfterFunc(3*time.Minute, func() {
-//		mx.Lock()
-//		if cacheDirty {
-//			savestats()
-//			cacheDirty = false
-//		}
-//		mx.Unlock()
-//	})
-//	return true
-//}
-
-// score adds/substracts a users points, then prevents them from entering more than once in 2 minutes
-//func score(nick string, points int) {
-//	if didTry[nick] {
-//		return
-//	}
-//
-//	didTry[nick] = true
-//	mx.Lock()
-//	scores[nick] += points
-//	cacheDirty = true
-//	mx.Unlock()
-//	// reset the nick lock as soon as we're out of the accepted timeframe again
-//	time.AfterFunc(2*time.Minute, func() {
-//		mx.Lock()
-//		didTry[nick] = false
-//		mx.Unlock()
-//	})
-//}
-
 func (s *ScoreData) Stats(channel string) string {
 	kl, max_nicklen, err := s.Rank(channel)
 	if err != nil {
@@ -303,34 +241,6 @@ func (s *ScoreData) Stats(channel string) string {
 
 func (s *ScoreData) DidTry(channel, nick string) bool {
 	return s.Get(channel).Get(nick).didTry
-}
-
-func (c *Channel) SetSinglePoint(val bool) {
-	c.Lock()
-	c.singlePoint = val
-	c.Unlock()
-}
-
-func (c *Channel) GetScoreForEntry(t time.Time) (int, int) {
-	if t.Hour() == hour {
-		if t.Minute() == minute-1 {
-			return -1, -1
-		} else if t.Minute() == minute+1 {
-			return -1, 1
-		} else if t.Minute() == minute {
-			if !c.singlePoint { // means first score within time frame
-				c.SetSinglePoint(true) // next within time frame only gets 1 point
-				// reset after 2 minutes
-				time.AfterFunc(2*time.Minute, func() {
-					c.SetSinglePoint(false)
-				})
-				return 2, 0
-			} else {
-				return 1, 0
-			}
-		}
-	}
-	return 0, 0
 }
 
 func (s *ScoreData) TryScore(channel, nick string, t time.Time) (bool, string) {
@@ -412,56 +322,6 @@ func leet(cmd *bot.Cmd) (string, error) {
 	return "", fmt.Errorf("Reached beyond logic...")
 }
 
-//func leet(cmd *bot.Cmd) (string, error) {
-//	log.Debugf("cmd.Args: %q", cmd.Args)
-//
-//	if len(cmd.Args) == 1 && cmd.Args[0] == "stats" {
-//		kl, max_nicklen := rank()
-//		fstr := fmt.Sprintf("%s%d%s", "%-", max_nicklen, "s : %04d\n")
-//		str := fmt.Sprintf("Stats since %s:\n", botstart.Format(time.RFC3339))
-//		for _, kv := range kl {
-//			str += fmt.Sprintf(fstr, kv.Key, kv.Val)
-//		}
-//		return str, nil
-//	} else if len(cmd.Args) == 1 {
-//		return fmt.Sprintf("Unrecognized argument: %q. Usage: !1337 [stats]", cmd.Args[0]), nil
-//	}
-//
-//	// prevent ddos/spam
-//	if didTry[cmd.User.Nick] {
-//		return "", nil
-//	}
-//
-//	defer delayedSave() // after this point, stuff might be changed
-//
-//	t := time.Now()
-//	ts := fmt.Sprintf("[%02d:%02d:%02d:%09d]", t.Hour(), t.Minute(), t.Second(), t.Nanosecond())
-//	if t.Hour() == hour && t.Minute() == minute {
-//		if isFirst {
-//			score(cmd.User.Nick, 2)
-//			mx.Lock()
-//			isFirst = false
-//			mx.Unlock()
-//			time.AfterFunc(2*time.Minute, func() {
-//				mx.Lock()
-//				isFirst = true
-//				mx.Unlock()
-//			})
-//		} else {
-//			score(cmd.User.Nick, 1)
-//		}
-//		return fmt.Sprintf("%s Whoop! %s total score: %d\n", ts, cmd.User.Nick, scores[cmd.User.Nick]), nil
-//	} else if t.Hour() == hour && t.Minute() == minute-1 {
-//		score(cmd.User.Nick, -1)
-//		return fmt.Sprintf("%s Too early, sucker! %s: %d\n", ts, cmd.User.Nick, scores[cmd.User.Nick]), nil
-//	} else if t.Hour() == hour && t.Minute() == minute+1 {
-//		score(cmd.User.Nick, -1)
-//		return fmt.Sprintf("%s Too late, sucker! %s: %d\n", ts, cmd.User.Nick, scores[cmd.User.Nick]), nil
-//	}
-//
-//	return "", nil
-//}
-
 func pickupEnv() {
 	h := os.Getenv("LEETBOT_HOUR")
 	m := os.Getenv("LEETBOT_MINUTE")
@@ -482,23 +342,21 @@ func pickupEnv() {
 }
 
 func init() {
-	//botstart = time.Now()
-	//scores = make(map[string]int)
-	//didTry = make(map[string]bool)
 	scoreData = NewScoreData().LoadFile(SCORE_FILE)
+	pickupEnv() // for minute/hour
 
-	pickupEnv()
-
-//	file, err := os.Open(SCORE_FILE)
-//	if err == nil {
-//		err := load(file)
-//		if err != nil {
-//			log.Errorf("Error loading config from %q: %s", SCORE_FILE, err)
-//		} else {
-//			log.Infof("Loaded scores from %q", SCORE_FILE)
-//		}
-//		file.Close()
-//	}
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGUSR1)
+	go func() {
+		for sig := range sigChan {
+			switch sig {
+			case syscall.SIGUSR1:
+				scoreData.LoadFile(SCORE_FILE)
+			default:
+				log.Info("Cought unhandled signal, ignoring")
+			}
+		}
+	}()
 
 	bot.RegisterCommand(
 		"1337",

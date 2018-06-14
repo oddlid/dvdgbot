@@ -12,7 +12,7 @@ import (
 
 const (
 	POINTS_MAX   int    = 6
-	SKOJBOT_FILE string = "/tmp/skojbot.json"
+	QUOTE_FILE string = "/tmp/quotes.json"
 )
 
 type IRCMsg struct {

@@ -155,8 +155,8 @@ func (s *ScoreData) LoadFile(filename string) *ScoreData {
 }
 
 func (sd *ScoreData) Save(w io.Writer) (int, error) {
-	//jb, err := json.MarshalIndent(sd, "", "\t")
-	jb, err := json.Marshal(sd)
+	jb, err := json.MarshalIndent(sd, "", "\t")
+	//jb, err := json.Marshal(sd)
 	if err != nil {
 		return 0, err
 	}

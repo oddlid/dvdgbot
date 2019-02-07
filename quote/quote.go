@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	log "github.com/Sirupsen/logrus"
-	"github.com/go-chat-bot/bot"
+	"github.com/oddlid/bot"
 	"io"
 	"io/ioutil"
 	"time"

@@ -6,7 +6,7 @@ import (
 	"time"
 
 	log "github.com/Sirupsen/logrus"
-	"github.com/go-chat-bot/bot/irc"
+	"github.com/oddlid/bot/irc"
 	//_ "github.com/go-chat-bot/plugins/chucknorris"
 	_ "github.com/oddlid/dvdgbot/larsmonsen"
 	//_ "github.com/oddlid/dvdgbot/goodmorning"

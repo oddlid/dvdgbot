@@ -4,7 +4,7 @@ import (
 	"math/rand"
 	"regexp"
 
-	"github.com/go-chat-bot/bot"
+	"github.com/oddlid/bot"
 )
 
 const (

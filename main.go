@@ -6,13 +6,15 @@ import (
 	"time"
 
 	log "github.com/Sirupsen/logrus"
+	"github.com/oddlid/bot"
 	"github.com/oddlid/bot/irc"
-	//_ "github.com/go-chat-bot/plugins/chucknorris"
 	_ "github.com/oddlid/dvdgbot/larsmonsen"
-	//_ "github.com/oddlid/dvdgbot/goodmorning"
 	_ "github.com/oddlid/dvdgbot/leet"
+	"github.com/oddlid/dvdgbot/userwatch"
 	_ "github.com/oddlid/dvdgbot/xkcdbot"
 	"github.com/urfave/cli"
+	//_ "github.com/go-chat-bot/plugins/chucknorris"
+	//_ "github.com/oddlid/dvdgbot/goodmorning"
 )
 
 const (
@@ -48,7 +50,7 @@ func entryPoint(ctx *cli.Context) error {
 	//		return nil
 	//	}
 
-	irc.Run(&irc.Config{
+	c := &irc.Config{
 		Server:   serv,
 		Channels: chans,
 		User:     user,
@@ -56,7 +58,17 @@ func entryPoint(ctx *cli.Context) error {
 		Password: pass,
 		UseTLS:   tls,
 		Debug:    dbg,
-	})
+	}
+
+	bot.UseUnidecode = false // my own hack so we can have nice scandinavian letters
+	b, ic := irc.SetUpConn(c)
+	err := userwatch.InitBot(c, b, ic, userwatch.DEF_CFGFILE)
+	if err != nil {
+		return cli.NewExitError(err.Error(), 1)
+	}
+
+	irc.Run(nil) // pass nil here, as we passed c to SetUpConn
+
 	return nil
 }
 

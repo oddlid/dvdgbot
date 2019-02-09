@@ -6,12 +6,12 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
-	"os/signal"
 	"sort"
 	"strconv"
 	"sync"
-	"syscall"
 	"time"
+	//"syscall"
+	//"os/signal"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/oddlid/bot"
@@ -289,8 +289,11 @@ func leet(cmd *bot.Cmd) (string, error) {
 	// handle arguments
 	if len(cmd.Args) == 1 && cmd.Args[0] == "stats" {
 		return scoreData.Stats(cmd.Channel), nil
+	} else if len(cmd.Args) == 1 && cmd.Args[0] == "reload" {
+		scoreData.LoadFile(SCORE_FILE)
+		return "Score data reloaded from file", nil
 	} else if len(cmd.Args) >= 1 {
-		return fmt.Sprintf("Unrecognized argument: %q. Usage: !1337 [stats]", cmd.Args[0]), nil
+		return fmt.Sprintf("Unrecognized argument: %q. Usage: !1337 [stats|reload]", cmd.Args[0]), nil
 	}
 
 	// don't give a fuck outside accepted time frame
@@ -343,22 +346,23 @@ func init() {
 	scoreData = NewScoreData().LoadFile(SCORE_FILE)
 	pickupEnv() // for minute/hour
 
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, syscall.SIGUSR1)
-	go func() {
-		for sig := range sigChan {
-			switch sig {
-			case syscall.SIGUSR1:
-				scoreData.LoadFile(SCORE_FILE)
-			default:
-				log.Info("Cought unhandled signal, ignoring")
-			}
-		}
-	}()
+	// should probably implement this via command args instead
+	//sigChan := make(chan os.Signal, 1)
+	//signal.Notify(sigChan, syscall.SIGUSR1)
+	//go func() {
+	//	for sig := range sigChan {
+	//		switch sig {
+	//		case syscall.SIGUSR1:
+	//			scoreData.LoadFile(SCORE_FILE)
+	//		default:
+	//			log.Info("Cought unhandled signal, ignoring")
+	//		}
+	//	}
+	//}()
 
 	bot.RegisterCommand(
 		"1337",
 		"Register 1337 event, or print stats",
-		"[stats]",
+		"[stats|reload]",
 		leet)
 }

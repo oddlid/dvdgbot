@@ -10,8 +10,6 @@ import (
 	"strconv"
 	"sync"
 	"time"
-	//"syscall"
-	//"os/signal"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/oddlid/bot"
@@ -21,12 +19,25 @@ const (
 	DEF_HOUR   int    = 13
 	DEF_MINUTE int    = 37
 	SCORE_FILE string = "/tmp/leetbot_scores.json"
+	PLUGIN     string = "LeetBot"
+)
+
+type TimeCode int
+
+// Constants for signalling how much off timeframe
+const (
+	TF_BEFORE TimeCode = iota // more than a minute before
+	TF_EARLY                  // less than a minute before
+	TF_ONTIME                 // within correct minute
+	TF_LATE                   // less than a minute late
+	TF_AFTER                  // more than a minute late
 )
 
 var (
-	hour      int = DEF_HOUR
-	minute    int = DEF_MINUTE
-	scoreData *ScoreData
+	_hour      int = DEF_HOUR
+	_minute    int = DEF_MINUTE
+	_scoreData *ScoreData
+	_bot       *bot.Bot
 )
 
 type KV struct {
@@ -44,14 +55,15 @@ type User struct {
 
 type Channel struct {
 	sync.RWMutex
-	Users       map[string]*User `json:"users"`
-	singlePoint bool             // instead of "isFirst", so that it defaults to false and means less logic to write
+	Users    map[string]*User `json:"users"`
+	tmpNicks []string         // used for storing who participated in a specific round. Reset after calculation.
 }
 
 type ScoreData struct {
 	BotStart       time.Time           `json:"botstart"`
 	Channels       map[string]*Channel `json:"channels"`
 	saveInProgress bool
+	calcInProgress bool
 }
 
 func (kl KVList) Len() int {
@@ -66,6 +78,10 @@ func (kl KVList) Swap(i, j int) {
 	kl[i], kl[j] = kl[j], kl[i]
 }
 
+func SetParentBot(b *bot.Bot) {
+	_bot = b
+}
+
 func NewScoreData() *ScoreData {
 	return &ScoreData{
 		BotStart: time.Now(),
@@ -73,20 +89,31 @@ func NewScoreData() *ScoreData {
 	}
 }
 
+func (u *User) AddScore(points int) int {
+	u.Lock()
+	defer u.Unlock()
+	u.Points += points
+	return u.Points
+}
+
 func (u *User) Score(points int) (bool, int) {
 	if u.didTry {
 		return false, u.Points
 	}
+	u.AddScore(points)
 	u.Lock()
-	u.Points += points
 	u.didTry = true
+	total := u.Points
 	u.Unlock()
+	// Reset didTry after 2 minutes
+	// This should create a "loophole" so that if a user posts too early and gets -1,
+	// they could manage to get another -1 by being too late as well :D
 	time.AfterFunc(2*time.Minute, func() {
 		u.Lock()
 		u.didTry = false
 		u.Unlock()
 	})
-	return true, u.Points
+	return true, total
 }
 
 func (c *Channel) Get(nick string) *User {
@@ -102,46 +129,73 @@ func (c *Channel) Get(nick string) *User {
 	return user
 }
 
-func (c *Channel) SetSinglePoint(val bool) {
+func (c *Channel) HasPendingScores() bool {
+	c.RLock()
+	defer c.RUnlock()
+	return c.tmpNicks != nil && len(c.tmpNicks) > 0
+}
+
+func (c *Channel) AddNickForRound(nick string) int {
+	// first in gets the most points, last the least
 	c.Lock()
-	c.singlePoint = val
+	defer c.Unlock()
+	c.tmpNicks = append(c.tmpNicks, nick)
+	return len(c.tmpNicks) // returns first place, second place etc
+}
+
+func (c *Channel) ClearNicksForRound() {
+	c.Lock()
+	c.tmpNicks = nil
 	c.Unlock()
 }
 
-func (c *Channel) GetScoreForEntry(t time.Time) (int, int) {
-	if t.Hour() == hour {
-		if t.Minute() == minute-1 {
-			return -1, -1
-		} else if t.Minute() == minute+1 {
-			return -1, 1
-		} else if t.Minute() == minute {
-			if !c.singlePoint { // means first score within time frame
-				c.SetSinglePoint(true) // next within time frame only gets 1 point
-				// reset after 2 minutes
-				time.AfterFunc(2*time.Minute, func() {
-					c.SetSinglePoint(false)
-				})
-				return 2, 0
-			} else {
-				return 1, 0
-			}
-		}
+// GetScoresForRound returns a map of nicks with the scores for this round
+func (c *Channel) GetScoresForRound() map[string]int {
+	if c.tmpNicks == nil || len(c.tmpNicks) == 0 {
+		return nil
 	}
-	return 0, 0
+	maxScore := len(c.tmpNicks)
+	nickMap := make(map[string]int)
+	c.Lock()
+	for i := range c.tmpNicks {
+		nickMap[c.tmpNicks[i]] = maxScore - i
+	}
+	c.Unlock()
+
+	return nickMap
 }
 
-func (sd *ScoreData) Load(r io.Reader) error {
+func (c *Channel) MergeScoresForRound(newScores map[string]int) {
+	for nick := range newScores {
+		c.Get(nick).AddScore(newScores[nick])
+	}
+}
+
+func (c *Channel) GetScoreForEntry(t time.Time) (int, TimeCode) {
+	var points int
+	tf := timeFrame(t)
+
+	if TF_EARLY == tf || TF_LATE == tf {
+		points = -1
+	} else {
+		points = 0 // will be set later if on time
+	}
+
+	return points, tf
+}
+
+func (s *ScoreData) Load(r io.Reader) error {
 	jb, err := ioutil.ReadAll(r)
 	if err != nil {
 		return err
 	}
-	return json.Unmarshal(jb, sd)
+	return json.Unmarshal(jb, s)
 }
 
 func (s *ScoreData) LoadFile(filename string) *ScoreData {
 	file, err := os.Open(filename)
 	if err != nil {
-		log.Errorf("ScoreData.LoadFile(): Unable to load %q", filename)
+		log.Errorf("%s: ScoreData.LoadFile() Error: %q", PLUGIN, err.Error())
 		return s
 	}
 	defer file.Close()
@@ -150,13 +204,13 @@ func (s *ScoreData) LoadFile(filename string) *ScoreData {
 		log.Error(err)
 		return NewScoreData()
 	}
-	log.Info("Leet stats (re)loaded from file")
+	log.Infof("%s: Leet stats (re)loaded from file %q", PLUGIN, filename)
 	return s
 }
 
-func (sd *ScoreData) Save(w io.Writer) (int, error) {
-	jb, err := json.MarshalIndent(sd, "", "\t")
-	//jb, err := json.Marshal(sd)
+func (s *ScoreData) Save(w io.Writer) (int, error) {
+	jb, err := json.MarshalIndent(s, "", "\t")
+	//jb, err := json.Marshal(s)
 	if err != nil {
 		return 0, err
 	}
@@ -174,23 +228,63 @@ func (s *ScoreData) SaveFile(filename string) error {
 	if err != nil {
 		return err
 	}
-	log.Infof("Saved %d bytes to %q", n, filename)
+	log.Infof("%s: Saved %d bytes to %q", PLUGIN, n, filename)
 	return nil
 }
 
-func (s *ScoreData) ScheduleSave(filename string) bool {
+func (s *ScoreData) ScheduleSave(filename string, delayMinutes time.Duration) bool {
 	if s.saveInProgress {
 		return false
 	}
 	s.saveInProgress = true
-	time.AfterFunc(3*time.Minute, func() {
+	time.AfterFunc(delayMinutes*time.Minute, func() {
 		err := s.SaveFile(filename)
 		if err != nil {
-			log.Errorf("Scheduled save failed: %s", err)
+			log.Errorf("%s: Scheduled save failed: %s", PLUGIN, err.Error())
 		}
 		s.saveInProgress = false
 	})
 	return s.saveInProgress
+}
+
+func (s *ScoreData) calcAndPost(channel string) {
+	c := s.Get(channel)
+	scoreMap := c.GetScoresForRound()
+	c.MergeScoresForRound(scoreMap)
+
+	// first loop for getting max nicklen
+	nick_maxlen := 0
+	for i := range c.tmpNicks {
+		nlen := len(c.tmpNicks[i])
+		if nlen > nick_maxlen {
+			nick_maxlen = nlen
+		}
+	}
+	msg := fmt.Sprintf("New positive scores for %s:\n", time.Now().Format("2006-01-02"))
+	fstr := fmt.Sprintf("%s%d%s", "%-", nick_maxlen, "s : %04d [+%02d]\n")
+	for _, nick := range c.tmpNicks {
+		msg += fmt.Sprintf(fstr, nick, c.Get(nick).Points, scoreMap[nick])
+	}
+
+	_bot.SendMessage(
+		channel,
+		msg,
+		&bot.User{}, // trying empty user struct, might be enough
+	)
+
+	c.ClearNicksForRound() // clean up, before next round
+}
+
+func (s *ScoreData) ScheduleCalcScore(channel string, delayMinutes time.Duration) bool {
+	if s.calcInProgress {
+		return false
+	}
+	s.calcInProgress = true
+	time.AfterFunc(delayMinutes*time.Minute, func() {
+		s.calcAndPost(channel)
+		s.calcInProgress = false
+	})
+	return s.calcInProgress
 }
 
 func (s *ScoreData) Get(channel string) *Channel {
@@ -243,76 +337,106 @@ func (s *ScoreData) DidTry(channel, nick string) bool {
 
 func (s *ScoreData) TryScore(channel, nick string, t time.Time) (bool, string) {
 	c := s.Get(channel)
+	points, tf := c.GetScoreForEntry(t)
 
-	points, earlyOrLate := c.GetScoreForEntry(t)
-	if points == 0 { // outside time frame
+	if TF_BEFORE == tf || TF_AFTER == tf {
 		return false, ""
 	}
 
-	didScore, userTotal := c.Get(nick).Score(points)
-	if !didScore { // user tried again / spam
-		return false, ""
-	}
-
+	_, userTotal := c.Get(nick).Score(points)
 	ts := fmt.Sprintf("[%02d:%02d:%02d:%09d]", t.Hour(), t.Minute(), t.Second(), t.Nanosecond())
 
-	if earlyOrLate == -1 {
+	if TF_EARLY == tf {
 		return true, fmt.Sprintf("%s Too early, sucker! %s: %d", ts, nick, userTotal)
-	} else if earlyOrLate == 1 {
+	} else if TF_LATE == tf {
 		return true, fmt.Sprintf("%s Too late, sucker! %s: %d", ts, nick, userTotal)
-	} else if earlyOrLate == 0 {
-		if points == 2 {
-			return true, fmt.Sprintf("%s Double whoop! %s: %d", ts, nick, userTotal)
-		} else if points == 1 {
-			return true, fmt.Sprintf("%s Whoop! %s: %d", ts, nick, userTotal)
-		}
 	}
 
-	// should not get here
-	return false, ts
+	rank := c.AddNickForRound(nick) // how many points is calculated from how many times this is called, later on
+
+	return true, fmt.Sprintf("%s Whoop! %s: #%d", ts, nick, rank)
 }
 
-func withinTimeFrame(t time.Time) bool {
-	if t.Hour() != hour {
-		return false
+func timeFrame(t time.Time) TimeCode {
+	th := t.Hour()
+	if th < _hour {
+		return TF_BEFORE
+	} else if th > _hour {
+		return TF_AFTER
 	}
-	curMin := t.Minute()
-	if curMin != minute && curMin != minute-1 && curMin != minute+1 {
-		return false
+	// now we know we're within the correct hour
+	tm := t.Minute()
+	if tm < _minute-1 {
+		return TF_BEFORE
+	} else if tm > _minute+1 {
+		return TF_AFTER
+	} else if tm == _minute-1 {
+		return TF_EARLY
+	} else if tm == _minute+1 {
+		return TF_LATE
 	}
-	return true
+	return TF_ONTIME
+}
+
+func withinTimeFrame(t time.Time) (bool, TimeCode) {
+	tf := timeFrame(t)
+	if tf == TF_EARLY || tf == TF_ONTIME || tf == TF_LATE {
+		return true, tf
+	}
+	return false, tf
 }
 
 func leet(cmd *bot.Cmd) (string, error) {
 	t := time.Now() // save time as early as possible
 
 	// handle arguments
-	if len(cmd.Args) == 1 && cmd.Args[0] == "stats" {
-		return scoreData.Stats(cmd.Channel), nil
-	} else if len(cmd.Args) == 1 && cmd.Args[0] == "reload" {
-		scoreData.LoadFile(SCORE_FILE)
-		return "Score data reloaded from file", nil
-	} else if len(cmd.Args) >= 1 {
+	alen := len(cmd.Args)
+	if alen == 1 && "stats" == cmd.Args[0] {
+		if _scoreData.calcInProgress {
+			return "Stats are calculating. Try again in a couple of minutes.", nil
+		} else {
+			return _scoreData.Stats(cmd.Channel), nil
+		}
+	} else if alen == 1 && "reload" == cmd.Args[0] {
+		if !_scoreData.saveInProgress {
+			_scoreData.LoadFile(SCORE_FILE)
+			return "Score data reloaded from file", nil
+		} else {
+			return "A scheduled save is in progress. Will not reload right now.", nil
+		}
+	} else if alen >= 1 {
 		return fmt.Sprintf("Unrecognized argument: %q. Usage: !1337 [stats|reload]", cmd.Args[0]), nil
 	}
 
 	// don't give a fuck outside accepted time frame
-	if !withinTimeFrame(t) {
+	inTimeFrame, tf := withinTimeFrame(t)
+	if !inTimeFrame {
 		return "", nil
 	}
 
 	// is the user spamming?
-	if scoreData.DidTry(cmd.Channel, cmd.User.Nick) {
-		//return "", fmt.Errorf("%s already tried within allowed timeframe", cmd.User.Nick)
+	if _scoreData.DidTry(cmd.Channel, cmd.User.Nick) {
 		return fmt.Sprintf("%s: Stop spamming!", cmd.User.Nick), nil
 	}
 
-	success, msg := scoreData.TryScore(cmd.Channel, cmd.User.Nick, t)
+	success, msg := _scoreData.TryScore(cmd.Channel, cmd.User.Nick, t)
 
 	// at this point, data might have changed, and should be saved
-	saveScheduled := scoreData.ScheduleSave(SCORE_FILE)
-	if !saveScheduled {
-		log.Debug("Ignoring redundant save scheduling")
+	var delayMinutes time.Duration
+	if TF_EARLY == tf {
+		delayMinutes = 3
+	} else if TF_ONTIME == tf {
+		delayMinutes = 2
+	} else if TF_LATE == tf {
+		delayMinutes = 1
+	}
+
+	if success && !_scoreData.saveInProgress {
+		_scoreData.ScheduleSave(SCORE_FILE, delayMinutes+1)
+	}
+
+	if !_scoreData.calcInProgress && _scoreData.Get(cmd.Channel).HasPendingScores() {
+		_scoreData.ScheduleCalcScore(cmd.Channel, delayMinutes)
 	}
 
 	if success {
@@ -320,7 +444,7 @@ func leet(cmd *bot.Cmd) (string, error) {
 	}
 
 	// bogus
-	return "", fmt.Errorf("Reached beyond logic...")
+	return "", fmt.Errorf("%s: Reached beyond logic...", PLUGIN)
 }
 
 func pickupEnv() {
@@ -329,40 +453,27 @@ func pickupEnv() {
 
 	var err error
 	if h != "" {
-		hour, err = strconv.Atoi(h)
+		_hour, err = strconv.Atoi(h)
 		if err != nil {
-			hour = DEF_HOUR
+			_hour = DEF_HOUR
 		}
 	}
 	if m != "" {
-		minute, err = strconv.Atoi(m)
+		_minute, err = strconv.Atoi(m)
 		if err != nil {
-			minute = DEF_MINUTE
+			_minute = DEF_MINUTE
 		}
 	}
 }
 
 func init() {
-	scoreData = NewScoreData().LoadFile(SCORE_FILE)
+	_scoreData = NewScoreData().LoadFile(SCORE_FILE)
 	pickupEnv() // for minute/hour
-
-	// should probably implement this via command args instead
-	//sigChan := make(chan os.Signal, 1)
-	//signal.Notify(sigChan, syscall.SIGUSR1)
-	//go func() {
-	//	for sig := range sigChan {
-	//		switch sig {
-	//		case syscall.SIGUSR1:
-	//			scoreData.LoadFile(SCORE_FILE)
-	//		default:
-	//			log.Info("Cought unhandled signal, ignoring")
-	//		}
-	//	}
-	//}()
 
 	bot.RegisterCommand(
 		"1337",
 		"Register 1337 event, or print stats",
 		"[stats|reload]",
-		leet)
+		leet,
+	)
 }

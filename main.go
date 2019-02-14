@@ -9,7 +9,7 @@ import (
 	"github.com/oddlid/bot"
 	"github.com/oddlid/bot/irc"
 	_ "github.com/oddlid/dvdgbot/larsmonsen"
-	_ "github.com/oddlid/dvdgbot/leet"
+	"github.com/oddlid/dvdgbot/leet"
 	"github.com/oddlid/dvdgbot/userwatch"
 	_ "github.com/oddlid/dvdgbot/xkcdbot"
 	"github.com/urfave/cli"
@@ -62,6 +62,7 @@ func entryPoint(ctx *cli.Context) error {
 
 	bot.UseUnidecode = false // my own hack so we can have nice scandinavian letters
 	b, ic := irc.SetUpConn(c)
+	leet.SetParentBot(b)
 	err := userwatch.InitBot(c, b, ic, userwatch.DEF_CFGFILE)
 	if err != nil {
 		return cli.NewExitError(err.Error(), 1)

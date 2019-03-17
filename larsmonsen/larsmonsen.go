@@ -30,7 +30,6 @@ var (
 		"Lars Monsen har klatret opp Trollveggen. Med én hånd.",
 		"Lars har ugler i Monsen.",
 		"Lars Monsen er 1.83 m høy. Når han reiser seg på bakbeina blir han 5.27 m høy.",
-		"Lars Monsen kan telle til 10 med hundebjeff.",
 		"Lars Monsen har nok energi til å drive Las Vegas’ belysning i 2 år.",
 		"Lars Monsen har ikke føtter. Han har fjellsko.",
 		"Naturkreftene fikk kreftene av Lars Monsen.",

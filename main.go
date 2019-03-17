@@ -6,9 +6,10 @@ import (
 	"time"
 
 	log "github.com/Sirupsen/logrus"
-	"github.com/oddlid/bot"
-	"github.com/oddlid/bot/irc"
+	//"github.com/go-chat-bot/bot"
+	"github.com/go-chat-bot/bot/irc"
 	_ "github.com/oddlid/dvdgbot/larsmonsen"
+	_ "github.com/oddlid/dvdgbot/timestamp"
 	"github.com/oddlid/dvdgbot/leet"
 	"github.com/oddlid/dvdgbot/userwatch"
 	_ "github.com/oddlid/dvdgbot/xkcdbot"
@@ -60,7 +61,6 @@ func entryPoint(ctx *cli.Context) error {
 		Debug:    dbg,
 	}
 
-	bot.UseUnidecode = false // my own hack so we can have nice scandinavian letters
 	b, ic := irc.SetUpConn(c)
 	leet.SetParentBot(b)
 	err := userwatch.InitBot(c, b, ic, userwatch.DEF_CFGFILE)

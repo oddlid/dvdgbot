@@ -12,7 +12,7 @@ import (
 	"time"
 
 	log "github.com/Sirupsen/logrus"
-	"github.com/oddlid/bot"
+	"github.com/go-chat-bot/bot"
 )
 
 const (

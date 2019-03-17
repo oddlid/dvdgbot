@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/oddlid/bot"
+	"github.com/go-chat-bot/bot"
 	// Do NOT run goimports on this file, as it will remove imports where the last part of path does not match pkg name
 	// Use gofmt instead!
 	"github.com/nishanths/go-xkcd"

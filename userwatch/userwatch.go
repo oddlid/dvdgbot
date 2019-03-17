@@ -27,8 +27,8 @@ import (
 	"time"
 
 	log "github.com/Sirupsen/logrus"
-	"github.com/oddlid/bot"
-	"github.com/oddlid/bot/irc"
+	"github.com/go-chat-bot/bot"
+	"github.com/go-chat-bot/bot/irc"
 	ircevent "github.com/thoj/go-ircevent"
 )
 

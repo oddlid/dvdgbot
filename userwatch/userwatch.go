@@ -5,11 +5,11 @@ This plugin watches for irc users coming or going (join/part/quit).
 Runs commands / sends messages when this happens.
 
 NOTE: This plugin does not work as the normal plugins for "go-chat-bot",
-			as this one needs a handle to both the bot instance and the ircevent.Connection
-			instance, so just importing this prefixed with underscore and rely on init()
-			will not work. We need to have a custom setup function, where we add callbacks
-			to the ircevent.Connection instance. This should then be called by the importing
-			package before irc.Run().
+      as this one needs a handle to both the bot instance and the ircevent.Connection
+      instance, so just importing this prefixed with underscore and rely on init()
+      will not work. We need to have a custom setup function, where we add callbacks
+      to the ircevent.Connection instance. This should then be called by the importing
+      package before irc.Run().
 
 - Odd E. Ebbesen, 2019-02-07 18:32
 

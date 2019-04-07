@@ -8,6 +8,7 @@ import (
 	"os"
 	"sort"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -87,6 +88,55 @@ func NewScoreData() *ScoreData {
 		BotStart: time.Now(),
 		Channels: make(map[string]*Channel),
 	}
+}
+
+// bonus() returns extra points if the timestamp has certain patterns
+func bonus(t time.Time) int {
+	// We use the given hour and minute for point patterns.
+	// The farther to the right the pattern occurs, the more points.
+	// So, if hour = 13, minute = 37, we'd get something like this:
+	// 13:37:13:37xxxxx = +1 point
+	// 13:37:01:337xxxx = +2 points
+	// 13:37:00:1337xxx = +3 points
+	// 13:37:00:01337xx = +4 points
+	// 13:37:00:001337x = +5 points
+	// 13:37:00:0001337 = +6 points
+	// Tighter than 3x0 is very unlikely anyone will ever get.
+	// Still, we'll just calculate the bonus by using substring index +1.
+
+	// Helper func pb = "prefixed by". Returns true if all chars before given
+	// position are what's given as "char" argument.
+	pb := func(str string, char rune, pos int) bool {
+		for i, r := range str {
+			if r != char {
+				return false
+			}
+			if i >= pos-1 {
+				break
+			}
+		}
+		return true
+	}
+
+	bonus := 0
+	ts := fmt.Sprintf("%02d%09d", t.Second(), t.Nanosecond())
+	sstr := fmt.Sprintf("%02d%02d", _hour, _minute)
+	idx := strings.Index(ts, sstr)
+
+	if idx > -1 {
+		if idx > 0 {
+			// make sure it's only 0's before the match
+			if pb(ts, '0', idx) {
+				bonus = idx + 1
+			} else { // still give a small bonus if match, but not prefixed with 0's
+				bonus = 1
+			}
+		} else {
+			bonus = 1
+		}
+	}
+
+	return bonus
 }
 
 func (u *User) AddScore(points int) int {
@@ -172,6 +222,7 @@ func (c *Channel) MergeScoresForRound(newScores map[string]int) {
 }
 
 func (c *Channel) GetScoreForEntry(t time.Time) (int, TimeCode) {
+	// Don't know why I made this a method on Channel, as it does not use it
 	var points int
 	tf := timeFrame(t)
 
@@ -343,18 +394,32 @@ func (s *ScoreData) TryScore(channel, nick string, t time.Time) (bool, string) {
 		return false, ""
 	}
 
-	_, userTotal := c.Get(nick).Score(points)
 	ts := fmt.Sprintf("[%02d:%02d:%02d:%09d]", t.Hour(), t.Minute(), t.Second(), t.Nanosecond())
 
+	bonusPoints := bonus(t)
+	_, userTotal := c.Get(nick).Score(points + bonusPoints)
+
+	missTmpl := fmt.Sprintf("%s Too %s, sucker! %s: %d", ts, "%s", nick, userTotal)
+	if bonusPoints > 0 {
+		missTmpl += fmt.Sprintf(" (but you got %d bonus points!)", bonusPoints)
+	}
+
 	if TF_EARLY == tf {
-		return true, fmt.Sprintf("%s Too early, sucker! %s: %d", ts, nick, userTotal)
+		//return true, fmt.Sprintf("%s Too early, sucker! %s: %d", ts, nick, userTotal)
+		return true, fmt.Sprintf(missTmpl, "early")
 	} else if TF_LATE == tf {
-		return true, fmt.Sprintf("%s Too late, sucker! %s: %d", ts, nick, userTotal)
+		//return true, fmt.Sprintf("%s Too late, sucker! %s: %d", ts, nick, userTotal)
+		return true, fmt.Sprintf(missTmpl, "late")
 	}
 
 	rank := c.AddNickForRound(nick) // how many points is calculated from how many times this is called, later on
 
-	return true, fmt.Sprintf("%s Whoop! %s: #%d", ts, nick, rank)
+	ret := fmt.Sprintf("%s Whoop! %s: #%d", ts, nick, rank)
+	if bonusPoints > 0 {
+		ret = fmt.Sprintf("%s (+%d points bonus!!!)", ret, bonusPoints)
+	}
+
+	return true, ret
 }
 
 func timeFrame(t time.Time) TimeCode {

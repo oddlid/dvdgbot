@@ -1,3 +1,5 @@
+2018-03-07:
+
 bajsbot - Just making a stupid irc bot for fun
 
 Currently it has a module for Lars Monsen quotes, based on the Chuck Norris module,
@@ -15,3 +17,11 @@ Entering !1337 outside the specified time +- 1 minute, will not do anything.
 
 See "./bajsbot.bin -h" for options you can give at startup, such as specifying server, channels, user, nick, etc.
 
+2019-04-07:
+
+Updates:
+- Stats are saved in "/tmp/leetbot_scores.json"
+- In addition to "stats", there is now also argument "reload", that will reload stats from the disk file, in case one has edited it by hand.
+- The point system is much updated:
+  * There's a bonus system for substring matches of "1337" (or whatever hour and minute is given). See code for details.
+  * Top score when posting on time is dependant on how many participants that day. See ranking system in code for details.

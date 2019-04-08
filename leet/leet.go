@@ -90,6 +90,20 @@ func NewScoreData() *ScoreData {
 	}
 }
 
+// Helper func pb = "prefixed by". Returns true if all chars before given
+// position are what's given as "char" argument.
+func pb(str string, char rune, pos int) bool {
+	for i, r := range str {
+		if r != char {
+			return false
+		}
+		if i >= pos-1 {
+			break
+		}
+	}
+	return true
+}
+
 // bonus() returns extra points if the timestamp has certain patterns
 func bonus(t time.Time) int {
 	// We use the given hour and minute for point patterns.
@@ -103,20 +117,6 @@ func bonus(t time.Time) int {
 	// 13:37:00:0001337 = +6 points
 	// Tighter than 3x0 is very unlikely anyone will ever get.
 	// Still, we'll just calculate the bonus by using substring index +1.
-
-	// Helper func pb = "prefixed by". Returns true if all chars before given
-	// position are what's given as "char" argument.
-	pb := func(str string, char rune, pos int) bool {
-		for i, r := range str {
-			if r != char {
-				return false
-			}
-			if i >= pos-1 {
-				break
-			}
-		}
-		return true
-	}
 
 	bonus := 0
 	ts := fmt.Sprintf("%02d%09d", t.Second(), t.Nanosecond())

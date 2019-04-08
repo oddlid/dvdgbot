@@ -1,10 +1,10 @@
 package larsmonsen
 
 import (
-	"math/rand"
 	"regexp"
 
 	"github.com/go-chat-bot/bot"
+	"github.com/oddlid/rndlist"
 )
 
 const (
@@ -123,15 +123,17 @@ var (
 		"Den eneste grunnen til at Lars Monsen har hodelykt, er at vi skal se hvor han er.",
 		"Mayaindianerne forutså Lars Monsens utdrikkingslag 21. Desember 2012.",
 	}
+	rl *rndlist.RndStringList
 )
 
 func larsmonsen(command *bot.PassiveCmd) (string, error) {
 	if re.MatchString(command.Raw) {
-		return monsenfacts[rand.Intn(len(monsenfacts))], nil
+		return rl.Next(), nil
 	}
 	return "", nil
 }
 
 func init() {
+	rl = rndlist.NewRndStringList(monsenfacts...)
 	bot.RegisterPassiveCommand("larsmonsen", larsmonsen)
 }

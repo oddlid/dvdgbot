@@ -19,6 +19,7 @@ import (
 const (
 	DEF_HOUR   int    = 13
 	DEF_MINUTE int    = 37
+	BONUS_STEP int    = 10
 	SCORE_FILE string = "/tmp/leetbot_scores.json"
 	PLUGIN     string = "LeetBot"
 )
@@ -127,12 +128,12 @@ func bonus(t time.Time) int {
 		if idx > 0 {
 			// make sure it's only 0's before the match
 			if pb(ts, '0', idx) {
-				bonus = idx + 1
+				bonus = (idx + 1) * BONUS_STEP
 			} else { // still give a small bonus if match, but not prefixed with 0's
-				bonus = 1
+				bonus = 1 * BONUS_STEP
 			}
 		} else {
-			bonus = 1
+			bonus = 1 * BONUS_STEP
 		}
 	}
 

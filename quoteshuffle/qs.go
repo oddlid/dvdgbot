@@ -120,6 +120,17 @@ func (qd *QuoteData) Len() int {
 	return len(qd.Src)
 }
 
+func (qd *QuoteData) Unused() int {
+	return qd.Len()
+}
+
+func (qd *QuoteData) Used() int {
+	if nil == qd.Dst {
+		return -1
+	}
+	return len(qd.Dst)
+}
+
 func (qd *QuoteData) rndId() int {
 	return rand.Intn(len(qd.Src))
 }
@@ -172,4 +183,18 @@ func (qd *QuoteData) Shuffle() string {
 	item := qd.Next()
 	qd.SaveSelf()
 	return item
+}
+
+// Reset() puts whatever is in Dst in Src, and then sets Dst to nil
+func (qd *QuoteData) Reset() {
+	qd.Src = append(qd.Src, qd.Dst...)
+	qd.Dst = nil
+}
+
+func (qd *QuoteData) ResetAndSave() {
+	if "" == qd.FileName {
+		return
+	}
+	qd.Reset()
+	qd.SaveSelf()
 }

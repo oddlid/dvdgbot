@@ -36,10 +36,11 @@ const (
 )
 
 var (
-	_hour      int = DEF_HOUR
-	_minute    int = DEF_MINUTE
-	_scoreData *ScoreData
-	_bot       *bot.Bot
+	_hour         int = DEF_HOUR
+	_minute       int = DEF_MINUTE
+	_scoreData    *ScoreData
+	_bot          *bot.Bot
+	_bonusConfigs BonusConfigs
 )
 
 type KV struct {
@@ -68,6 +69,17 @@ type ScoreData struct {
 	calcInProgress bool
 }
 
+type BonusConfig struct {
+	SubString    string // string to search for in timestamp
+	PrefixChar   rune   // the char required as only prefix for max bonus, e.g. '0'
+	UseStep      bool   // if to multiply points for each position to the right in string
+	StepPoints   int    // points to multiply substring position with
+	NoStepPoints int    // points to return for match when UseStep == false
+	matchPos     int    // internal index for substring match position
+}
+
+type BonusConfigs []BonusConfig
+
 func (kl KVList) Len() int {
 	return len(kl)
 }
@@ -91,53 +103,79 @@ func NewScoreData() *ScoreData {
 	}
 }
 
-// Helper func pb = "prefixed by". Returns true if all chars before given
-// position are what's given as "char" argument.
-func pb(str string, char rune, pos int) bool {
-	for i, r := range str {
-		if r != char {
+func (bd BonusConfig) hasHomogenicPrefix(ts string) bool {
+	for i, r := range ts {
+		if r != bd.PrefixChar {
 			return false
 		}
-		if i >= pos-1 {
+		if i >= bd.matchPos-1 {
 			break
 		}
 	}
 	return true
 }
 
-// bonus() returns extra points if the timestamp has certain patterns
-func bonus(t time.Time) int {
+func (bd BonusConfig) Calc(ts string) int {
 	// We use the given hour and minute for point patterns.
 	// The farther to the right the pattern occurs, the more points.
 	// So, if hour = 13, minute = 37, we'd get something like this:
-	// 13:37:13:37xxxxx = +1 point
-	// 13:37:01:337xxxx = +2 points
-	// 13:37:00:1337xxx = +3 points
-	// 13:37:00:01337xx = +4 points
-	// 13:37:00:001337x = +5 points
-	// 13:37:00:0001337 = +6 points
-	// Tighter than 3x0 is very unlikely anyone will ever get.
-	// Still, we'll just calculate the bonus by using substring index +1.
+	// 13:37:13:37xxxxx = +(1 * STEP) points
+	// 13:37:01:337xxxx = +(2 * STEP) points
+	// 13:37:00:1337xxx = +(3 * STEP) points
+	// 13:37:00:01337xx = +(4 * STEP) points
+	// 13:37:00:001337x = +(5 * STEP) points
+	// 13:37:00:0001337 = +(6 * STEP) points
+	// ...
 
-	bonus := 0
-	ts := fmt.Sprintf("%02d%09d", t.Second(), t.Nanosecond())
-	sstr := fmt.Sprintf("%02d%02d", _hour, _minute)
-	idx := strings.Index(ts, sstr)
+	//TAG := "BonusConfig.Calc()"
 
-	if idx > -1 {
-		if idx > 0 {
-			// make sure it's only 0's before the match
-			if pb(ts, '0', idx) {
-				bonus = (idx + 1) * BONUS_STEP
-			} else { // still give a small bonus if match, but not prefixed with 0's
-				bonus = 1 * BONUS_STEP
-			}
-		} else {
-			bonus = 1 * BONUS_STEP
-		}
+	// Search for substring match
+	bd.matchPos = strings.Index(ts, bd.SubString)
+	//log.Debugf("%s: bd.matchPos = %d", TAG, bd.matchPos)
+
+	// There is no substring match, so we return 0 and don't bother with other checks
+	if bd.matchPos == -1 {
+		return 0
 	}
 
-	return bonus
+	// We have a match, but don't care about the substring position,
+	//so we return points for any match without calculation
+	if !bd.UseStep {
+		return bd.NoStepPoints
+	}
+
+	// We have a match, we DO care about position, but position is
+	// 0, so we don't need to calculate, and can return StepPoints directly
+	if bd.matchPos == 0 {
+		return bd.StepPoints
+	}
+
+	// We have a match, we DO care about position, and position is above 0,
+	// so now we need to calculate what to return
+
+	// Position is not "purely prefixed" e.g. just zeros before the match
+	if !bd.hasHomogenicPrefix(ts) {
+		return bd.StepPoints
+	}
+
+	// At this point, we know we have a match at position > 0, prefixed by only PrefixChar,
+	// so we calculate bonus and return
+	return (bd.matchPos + 1) * bd.StepPoints
+}
+
+func (bcs *BonusConfigs) Add(bc BonusConfig) {
+	//log.Debugf("Inside BonusConfigs.Add() ...")
+	*bcs = append(*bcs, bc)
+}
+
+func (bcs BonusConfigs) Calc(ts string) int {
+	//log.Debugf("Inside BonusConfigs.Calc(), Number of configs: %d", len(bcs))
+	total := 0
+	for _, bc := range bcs {
+		//log.Debugf("Calculating...")
+		total += bc.Calc(ts)
+	}
+	return total
 }
 
 func (u *User) AddScore(points int) int {
@@ -397,7 +435,7 @@ func (s *ScoreData) TryScore(channel, nick string, t time.Time) (bool, string) {
 
 	ts := fmt.Sprintf("[%02d:%02d:%02d:%09d]", t.Hour(), t.Minute(), t.Second(), t.Nanosecond())
 
-	bonusPoints := bonus(t)
+	bonusPoints := _bonusConfigs.Calc(fmt.Sprintf("%02d%09d", t.Second(), t.Nanosecond()))
 	_, userTotal := c.Get(nick).Score(points + bonusPoints)
 
 	missTmpl := fmt.Sprintf("%s Too %s, sucker! %s: %d", ts, "%s", nick, userTotal)
@@ -533,8 +571,30 @@ func pickupEnv() {
 }
 
 func init() {
+	// For debug use:
+	//log.SetLevel(log.DebugLevel)
+
 	_scoreData = NewScoreData().LoadFile(SCORE_FILE)
-	pickupEnv() // for minute/hour
+	pickupEnv() // for minute/hour. IMPORTANT: this has to come before bonusconfigs, as they use these values to generate strings
+
+	_bonusConfigs.Add(
+		BonusConfig{
+			SubString:    fmt.Sprintf("%02d%02d", _hour, _minute), // '1337' when used as intended
+			PrefixChar:   '0',
+			UseStep:      true,
+			StepPoints:   10,
+			NoStepPoints: 0,
+		},
+	)
+	_bonusConfigs.Add(
+		BonusConfig{
+			SubString:    "666", // because, of course...
+			PrefixChar:   '0',   // not used, as UseStep is false
+			UseStep:      false, //
+			StepPoints:   0,     // not used
+			NoStepPoints: 18,    // 18 points, because 6+6+6 = 18
+		},
+	)
 
 	bot.RegisterCommand(
 		"1337",

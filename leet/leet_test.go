@@ -52,51 +52,84 @@ func TestSave(t *testing.T) {
 	t.Logf("Saved %d bytes to %q", n, fname)
 }
 
-func TestBonusPrefixZero(t *testing.T) {
-	ts := make([]time.Time, 7)
-	ts[0], _ = time.Parse(time.RFC3339Nano, "2019-04-07T13:37:00.090000000Z")
-	ts[1], _ = time.Parse(time.RFC3339Nano, "2019-04-07T13:37:13.370050000Z")
-	ts[2], _ = time.Parse(time.RFC3339Nano, "2019-04-07T13:37:01.337000100Z")
-	ts[3], _ = time.Parse(time.RFC3339Nano, "2019-04-07T13:37:00.133700000Z")
-	ts[4], _ = time.Parse(time.RFC3339Nano, "2019-04-07T13:37:00.013370000Z")
-	ts[5], _ = time.Parse(time.RFC3339Nano, "2019-04-07T13:37:00.001337080Z")
-	ts[6], _ = time.Parse(time.RFC3339Nano, "2019-04-07T13:37:00.000133700Z")
+func TestBonusConfigCalc(t *testing.T) {
+	var bcs BonusConfigs
+	stamps := []string{
+		"00000000000",
+		"13370000000",
+		"01337000000",
+		"00133700000",
+		"00013370000",
+		"00001337000",
+		"00000133700",
+		"00000013370",
+		"00000001337",
+		"01000001337",
+		"00006661337",
+		"00006660000",
+		"00001337666",
+	}
 
 	exp := 0
+	got := 0
 
-	for _, tt := range ts {
-		got := bonus(tt)
-		ft := fmt.Sprintf("%02d:%02d:%02d.%09d", tt.Hour(), tt.Minute(), tt.Second(), tt.Nanosecond())
-		if got != exp {
-			t.Errorf("Expected %d, got %d", exp, got)
-		}
-		t.Logf("Timestamp %q gives %d points bonus, as expected :)", ft, got)
-		exp += 1
+	bc1 := BonusConfig{
+		SubString:    "1337",
+		PrefixChar:   '0',
+		UseStep:      true,
+		StepPoints:   10,
+		NoStepPoints: 0,
 	}
+	bc2 := BonusConfig{
+		SubString:    "666",
+		PrefixChar:   '0',
+		UseStep:      false,
+		StepPoints:   0,
+		NoStepPoints: 18,
+	}
+
+	bcs.Add(bc1)
+
+	for i := 0; i <= 8; i++ {
+		exp = i * bc1.StepPoints
+		got = bcs.Calc(stamps[i])
+		if got != exp {
+			t.Errorf("Expected %d, got %d from substring %s", exp, got, stamps[i])
+		}
+		t.Logf("%s gives %d points bonus", stamps[i], got)
+	}
+
+	bcs.Add(bc2)
+
+	exp = 18
+	ts := stamps[11]
+	got = bcs.Calc(ts)
+	if got != exp {
+		t.Errorf("Expected %d, got %d from substring %s", exp, got, ts)
+	} else {
+		t.Logf("%s gives %d points bonus", ts, got)
+	}
+
+	exp = 28
+	ts = stamps[10]
+	got = bcs.Calc(ts)
+	if got != exp {
+		t.Errorf("Expected %d, got %d from substring %s", exp, got, ts)
+	} else {
+		t.Logf("%s gives %d points bonus", ts, got)
+	}
+
+	exp = 68
+	ts = stamps[12]
+	got = bcs.Calc(ts)
+	if got != exp {
+		t.Errorf("Expected %d, got %d from substring %s", exp, got, ts)
+	} else {
+		t.Logf("%s gives %d points bonus", ts, got)
+	}
+
 }
 
-func TestBonusPrefixOther(t *testing.T) {
-	ts := make([]time.Time, 7)
-	ts[0], _ = time.Parse(time.RFC3339Nano, "2019-04-07T13:37:00.090000000Z")
-	ts[1], _ = time.Parse(time.RFC3339Nano, "2019-04-07T13:37:03.370050000Z")
-	ts[2], _ = time.Parse(time.RFC3339Nano, "2019-04-07T13:37:11.337000100Z")
-	ts[3], _ = time.Parse(time.RFC3339Nano, "2019-04-07T13:37:20.133700000Z")
-	ts[4], _ = time.Parse(time.RFC3339Nano, "2019-04-07T13:37:03.013370000Z")
-	ts[5], _ = time.Parse(time.RFC3339Nano, "2019-04-07T13:37:00.401337080Z")
-	ts[6], _ = time.Parse(time.RFC3339Nano, "2019-04-07T13:37:00.008133700Z")
-
-	exp := 0
-
-	for _, tt := range ts {
-		got := bonus(tt)
-		ft := fmt.Sprintf("%02d:%02d:%02d.%09d", tt.Hour(), tt.Minute(), tt.Second(), tt.Nanosecond())
-		if got != exp {
-			t.Errorf("Expected %d, got %d", exp, got)
-		}
-		t.Logf("Timestamp %q gives %d points bonus, as expected :)", ft, got)
-		//exp += 1
-	}
-}
 
 // This BM shows that almost all execution time in bonus() goes to
 // 2 lines of string formatting...
@@ -125,31 +158,77 @@ func BenchmarkStrIndex(b *testing.B) {
 	intVar = ires
 }
 
-func BenchmarkPrefixedBy(b *testing.B) {
-	ts, _ := time.Parse(time.RFC3339Nano, "2019-04-07T13:37:00.000001337Z")
-	tstr := fmt.Sprintf("%02d%09d", ts.Second(), ts.Nanosecond())
-	sstr := "1337"
-	idx := strings.Index(tstr, sstr)
-	var bres bool
+//func BenchmarkPrefixedBy(b *testing.B) {
+//	ts, _ := time.Parse(time.RFC3339Nano, "2019-04-07T13:37:00.000001337Z")
+//	tstr := fmt.Sprintf("%02d%09d", ts.Second(), ts.Nanosecond())
+//	sstr := "1337"
+//	idx := strings.Index(tstr, sstr)
+//	var bres bool
+//
+//	for i := 0; i < b.N; i++ {
+//		bres = pb(tstr, '0', idx)
+//	}
+//	boolVar = bres
+//}
 
-	for i := 0; i < b.N; i++ {
-		bres = pb(tstr, '0', idx)
-	}
-	boolVar = bres
-}
+//func BenchmarkBonus(b *testing.B) {
+//	ts, _ := time.Parse(time.RFC3339Nano, "2019-04-07T13:37:00.000001337Z")
+//	//ts, _ := time.Parse(time.RFC3339Nano, "2019-04-07T13:37:13.370000000Z")
+//	//ts, _ := time.Parse(time.RFC3339Nano, "2019-04-07T13:37:01.337000000Z")
+//	//bp := 0
+//	var ires int
+//	for i := 0; i < b.N; i++ {
+//		//bp = bonus(ts)
+//		ires = bonus(ts)
+//	}
+//	intVar = ires
+//	//b.Logf("bonus: %d", bp)
+//}
 
-func BenchmarkBonus(b *testing.B) {
-	ts, _ := time.Parse(time.RFC3339Nano, "2019-04-07T13:37:00.000001337Z")
-	//ts, _ := time.Parse(time.RFC3339Nano, "2019-04-07T13:37:13.370000000Z")
-	//ts, _ := time.Parse(time.RFC3339Nano, "2019-04-07T13:37:01.337000000Z")
-	//bp := 0
-	var ires int
-	for i := 0; i < b.N; i++ {
-		//bp = bonus(ts)
-		ires = bonus(ts)
+func BenchmarkBonusConfigCalc(b *testing.B) {
+	var bcs BonusConfigs
+	stamps := []string{
+		"00000000000",
+		"13370000000",
+		"01337000000",
+		"00133700000",
+		"00013370000",
+		"00001337000",
+		"00000133700",
+		"00000013370",
+		"00000001337",
+		"01000001337",
+		"00006661337",
+		"00006660000",
+		"00001337666",
 	}
-	intVar = ires
-	//b.Logf("bonus: %d", bp)
+
+	bc1 := BonusConfig{
+		SubString:    "1337",
+		PrefixChar:   '0',
+		UseStep:      true,
+		StepPoints:   10,
+		NoStepPoints: 0,
+	}
+	bc2 := BonusConfig{
+		SubString:    "666",
+		PrefixChar:   '0',
+		UseStep:      false,
+		StepPoints:   0,
+		NoStepPoints: 18,
+	}
+
+	bcs.Add(bc1)
+	bcs.Add(bc2)
+
+	got := 0
+
+	for _, ts := range stamps {
+		for i := 0; i < b.N; i++ {
+			got = bcs.Calc(ts)
+		}
+		intVar = got
+	}
 }
 
 func BenchmarkTryScore(b *testing.B) {

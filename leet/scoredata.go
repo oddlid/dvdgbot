@@ -110,7 +110,7 @@ func (s *ScoreData) calcAndPost(channel string) {
 		// The idea here is to print something extra if total points match any configured bonus value
 		xtra := ""
 		if _bonusConfigs.HasValue(total) {
-			xtra = " Hail Satan \m/"
+			xtra = ` Hail Satan \m/`
 		}
 		return fmt.Sprintf(fstr, nick, total, plus, xtra)
 	}

@@ -104,16 +104,21 @@ func (s *ScoreData) calcAndPost(channel string) {
 		}
 	}
 	msg := fmt.Sprintf("New positive scores for %s:\n", time.Now().Format("2006-01-02"))
-	fstr := fmt.Sprintf("%s%d%s", "%-", nick_maxlen, "s : %04d [+%02d]\n")
-	for _, nick := range c.tmpNicks {
-		msg += fmt.Sprintf(fstr, nick, c.Get(nick).Points, scoreMap[nick])
+	fstr := fmt.Sprintf("%s%d%s", "%-", nick_maxlen, "s : %04d [+%02d]%s\n")
+
+	getmsg := func(nick string, total, plus int) string {
+		// The idea here is to print something extra if total points match any configured bonus value
+		xtra := ""
+		if _bonusConfigs.HasValue(total) {
+			xtra = " Hail Satan \m/"
+		}
+		return fmt.Sprintf(fstr, nick, total, plus, xtra)
 	}
 
-	//_bot.SendMessage(
-	//	channel,
-	//	msg,
-	//	&bot.User{}, // trying empty user struct, might be enough
-	//)
+	for _, nick := range c.tmpNicks {
+		//msg += fmt.Sprintf(fstr, nick, c.Get(nick).Points, scoreMap[nick])
+		msg += getmsg(nick, c.Get(nick).Points, scoreMap[nick])
+	}
 
 	_bot.SendMessage(
 		bot.OutgoingMessage{
@@ -206,10 +211,8 @@ func (s *ScoreData) TryScore(channel, nick string, t time.Time) (bool, string) {
 	}
 
 	if TF_EARLY == tf {
-		//return true, fmt.Sprintf("%s Too early, sucker! %s: %d", ts, nick, userTotal)
 		return true, fmt.Sprintf(missTmpl, "early")
 	} else if TF_LATE == tf {
-		//return true, fmt.Sprintf("%s Too late, sucker! %s: %d", ts, nick, userTotal)
 		return true, fmt.Sprintf(missTmpl, "late")
 	}
 

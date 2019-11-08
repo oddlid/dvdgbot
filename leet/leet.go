@@ -1,18 +1,11 @@
 package leet
 
 import (
-	//"encoding/json"
 	"fmt"
-	//"io"
-	//"io/ioutil"
 	"os"
-	//"sort"
 	"strconv"
-	//"strings"
-	//"sync"
 	"time"
 
-	//log "github.com/Sirupsen/logrus"
 	"github.com/go-chat-bot/bot"
 )
 
@@ -158,9 +151,6 @@ func pickupEnv() {
 }
 
 func init() {
-	// For debug use:
-	//log.SetLevel(log.DebugLevel)
-
 	_scoreData = NewScoreData().LoadFile(SCORE_FILE)
 	pickupEnv() // for minute/hour. IMPORTANT: this has to come before bonusconfigs, as they use these values to generate strings
 

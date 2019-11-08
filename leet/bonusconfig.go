@@ -1,6 +1,7 @@
 package leet
 
 import (
+	"strconv"
 	"strings"
 )
 
@@ -39,11 +40,9 @@ func (bc BonusConfig) Calc(ts string) int {
 	// 13:37:00:0001337 = +(6 * STEP) points
 	// ...
 
-	//TAG := "BonusConfig.Calc()"
 
 	// Search for substring match
 	bc.matchPos = strings.Index(ts, bc.SubString)
-	//log.Debugf("%s: bd.matchPos = %d", TAG, bd.matchPos)
 
 	// There is no substring match, so we return 0 and don't bother with other checks
 	if bc.matchPos == -1 {
@@ -76,17 +75,26 @@ func (bc BonusConfig) Calc(ts string) int {
 }
 
 func (bcs *BonusConfigs) Add(bc BonusConfig) {
-	//log.Debugf("Inside BonusConfigs.Add() ...")
 	*bcs = append(*bcs, bc)
 }
 
 func (bcs BonusConfigs) Calc(ts string) int {
-	//log.Debugf("Inside BonusConfigs.Calc(), Number of configs: %d", len(bcs))
 	total := 0
 	for _, bc := range bcs {
-		//log.Debugf("Calculating...")
 		total += bc.Calc(ts)
 	}
 	return total
 }
 
+func (bcs BonusConfigs) HasValue(val int) bool {
+	for _, bc := range bcs {
+		ival, err := strconv.Atoi(bc.SubString)
+		if err != nil {
+			continue
+		}
+		if ival == val {
+			return true
+		}
+	}
+	return false
+}

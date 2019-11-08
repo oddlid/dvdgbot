@@ -1,7 +1,7 @@
 BINARY := bajsbot.bin
 VERSION := 2019-11-08
 SOURCES := $(wildcard *.go)
-DEPS := larsmonsen/larsmonsen.go leet/leet.go xkcdbot/xkcdbot.go goodmorning/goodmorning.go quote/quote.go userwatch/userwatch.go timestamp/timestamp.go quoteshuffle/qs.go
+DEPS := larsmonsen/larsmonsen.go leet/leet.go leet/kv.go leet/user.go leet/channel.go leet/scoredata.go leet/bonusconfig.go xkcdbot/xkcdbot.go goodmorning/goodmorning.go quote/quote.go userwatch/userwatch.go timestamp/timestamp.go quoteshuffle/qs.go
 COMMIT_ID := $(shell git describe --tags --always)
 BUILD_TIME := $(shell date +%FT%T%:z)
 LDFLAGS = -ldflags "-X main.VERSION=${VERSION} -X main.BUILD_DATE=${BUILD_TIME} -X main.COMMIT_ID=${COMMIT_ID} -d -s -w"

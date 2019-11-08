@@ -266,13 +266,25 @@ func onJOIN(e *ircevent.Event) {
 		return
 	}
 
+	//_bot.SendMessage(
+	//	e.Arguments[0], // will be the channel name
+	//	msg,
+	//	&bot.User{
+	//		ID:       e.Host,
+	//		Nick:     e.Nick,
+	//		RealName: e.User,
+	//	},
+	//)
 	_bot.SendMessage(
-		e.Arguments[0], // will be the channel name
-		msg,
-		&bot.User{
-			ID:       e.Host,
-			Nick:     e.Nick,
-			RealName: e.User,
+		bot.OutgoingMessage{
+			e.Arguments[0],
+			msg,
+			&bot.User{
+				ID:       e.Host,
+				Nick:     e.Nick,
+				RealName: e.User,
+			},
+			nil,
 		},
 	)
 }
@@ -299,13 +311,25 @@ func onQUIT(e *ircevent.Event) {
 	}
 
 	// maybe we should loop through all channels and send a msg for each here
+	//_bot.SendMessage(
+	//	_cfg.Channels[0], // on QUIT e.Arguments[0] is empty, so we use this instead, even if not pretty
+	//	msg,
+	//	&bot.User{
+	//		ID:       e.Host,
+	//		Nick:     e.Nick,
+	//		RealName: e.User,
+	//	},
+	//)
 	_bot.SendMessage(
-		_cfg.Channels[0], // on QUIT e.Arguments[0] is empty, so we use this instead, even if not pretty
-		msg,
-		&bot.User{
-			ID:       e.Host,
-			Nick:     e.Nick,
-			RealName: e.User,
+		bot.OutgoingMessage{
+			_cfg.Channels[0],
+			msg,
+			&bot.User{
+				ID:       e.Host,
+				Nick:     e.Nick,
+				RealName: e.User,
+			},
+			nil,
 		},
 	)
 }

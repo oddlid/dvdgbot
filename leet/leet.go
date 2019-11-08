@@ -356,10 +356,19 @@ func (s *ScoreData) calcAndPost(channel string) {
 		msg += fmt.Sprintf(fstr, nick, c.Get(nick).Points, scoreMap[nick])
 	}
 
+	//_bot.SendMessage(
+	//	channel,
+	//	msg,
+	//	&bot.User{}, // trying empty user struct, might be enough
+	//)
+
 	_bot.SendMessage(
-		channel,
-		msg,
-		&bot.User{}, // trying empty user struct, might be enough
+		bot.OutgoingMessage{
+			channel,
+			msg,
+			&bot.User{},
+			nil,
+		},
 	)
 
 	c.ClearNicksForRound() // clean up, before next round

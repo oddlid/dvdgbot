@@ -104,19 +104,18 @@ func (s *ScoreData) calcAndPost(channel string) {
 		}
 	}
 	msg := fmt.Sprintf("New positive scores for %s:\n", time.Now().Format("2006-01-02"))
-	fstr := fmt.Sprintf("%s%d%s", "%-", nick_maxlen, "s : %04d [+%02d]%s\n")
+	fstr := fmt.Sprintf("%s%d%s", "%-", nick_maxlen, "s : %04d [+%02d] %s\n")
 
 	getmsg := func(nick string, total, plus int) string {
 		// The idea here is to print something extra if total points match any configured bonus value
-		xtra := ""
-		if _bonusConfigs.HasValue(total) {
-			xtra = ` Hail Satan \m/`
+		has, bc := _bonusConfigs.HasValue(total)
+		if has {
+			return fmt.Sprintf(fstr, nick, total, plus, bc.Greeting)
 		}
-		return fmt.Sprintf(fstr, nick, total, plus, xtra)
+		return fmt.Sprintf(fstr, nick, total, plus, "")
 	}
 
 	for _, nick := range c.tmpNicks {
-		//msg += fmt.Sprintf(fstr, nick, c.Get(nick).Points, scoreMap[nick])
 		msg += getmsg(nick, c.Get(nick).Points, scoreMap[nick])
 	}
 

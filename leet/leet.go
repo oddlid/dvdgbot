@@ -6,15 +6,17 @@ import (
 	"strconv"
 	"time"
 
+	log "github.com/Sirupsen/logrus"
 	"github.com/go-chat-bot/bot"
 )
 
 const (
-	DEF_HOUR   int    = 13
-	DEF_MINUTE int    = 37
-	BONUS_STEP int    = 10
-	SCORE_FILE string = "/tmp/leetbot_scores.json"
-	PLUGIN     string = "LeetBot"
+	DEF_HOUR          = 13
+	DEF_MINUTE        = 37
+	BONUS_STEP        = 10
+	SCORE_FILE        = "/tmp/leetbot_scores.json"
+	BONUSCONFIGS_FILE = "/tmp/leetbot_bonusconfigs.json"
+	PLUGIN            = "LeetBot"
 )
 
 type TimeCode int
@@ -82,6 +84,11 @@ func leet(cmd *bot.Cmd) (string, error) {
 			return _scoreData.Stats(cmd.Channel), nil
 		}
 	} else if alen == 1 && "reload" == cmd.Args[0] {
+		// TODO: Handle load errors and give feedback for BC as well
+		err := _bonusConfigs.LoadFile(BONUSCONFIGS_FILE)
+		if err != nil {
+			log.Error(err)
+		}
 		if !_scoreData.saveInProgress {
 			_scoreData.LoadFile(SCORE_FILE)
 			return "Score data reloaded from file", nil
@@ -154,24 +161,29 @@ func init() {
 	_scoreData = NewScoreData().LoadFile(SCORE_FILE)
 	pickupEnv() // for minute/hour. IMPORTANT: this has to come before bonusconfigs, as they use these values to generate strings
 
-	_bonusConfigs.Add(
-		BonusConfig{
-			SubString:    fmt.Sprintf("%02d%02d", _hour, _minute), // '1337' when used as intended
-			PrefixChar:   '0',
-			UseStep:      true,
-			StepPoints:   10,
-			NoStepPoints: 0,
-		},
-	)
-	_bonusConfigs.Add(
-		BonusConfig{
-			SubString:    "666", // because, of course...
-			PrefixChar:   '0',   // not used, as UseStep is false
-			UseStep:      false, //
-			StepPoints:   0,     // not used
-			NoStepPoints: 18,    // 18 points, because 6+6+6 = 18
-		},
-	)
+//	_bonusConfigs.Add(
+//		BonusConfig{
+//			SubString:    fmt.Sprintf("%02d%02d", _hour, _minute), // '1337' when used as intended
+//			PrefixChar:   '0',
+//			UseStep:      true,
+//			StepPoints:   10,
+//			NoStepPoints: 0,
+//		},
+//	)
+//	_bonusConfigs.Add(
+//		BonusConfig{
+//			SubString:    "666", // because, of course...
+//			PrefixChar:   '0',   // not used, as UseStep is false
+//			UseStep:      false, //
+//			StepPoints:   0,     // not used
+//			NoStepPoints: 18,    // 18 points, because 6+6+6 = 18
+//		},
+//	)
+
+	err := _bonusConfigs.LoadFile(BONUSCONFIGS_FILE)
+	if err != nil {
+		log.Error(err)
+	}
 
 	bot.RegisterCommand(
 		"1337",

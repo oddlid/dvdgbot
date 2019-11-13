@@ -1,16 +1,21 @@
 package leet
 
 import (
+	"encoding/json"
+	"io"
+	"io/ioutil"
+	"os"
 	"strconv"
 	"strings"
 )
 
 type BonusConfig struct {
-	SubString    string // string to search for in timestamp
-	PrefixChar   rune   // the char required as only prefix for max bonus, e.g. '0'
-	UseStep      bool   // if to multiply points for each position to the right in string
 	StepPoints   int    // points to multiply substring position with
 	NoStepPoints int    // points to return for match when UseStep == false
+	PrefixChar   rune   // the char required as only prefix for max bonus, e.g. '0'
+	UseStep      bool   // if to multiply points for each position to the right in string
+	SubString    string // string to search for in timestamp
+	Greeting     string // Message from bot to user upon bonus hit
 	matchPos     int    // internal index for substring match position
 }
 
@@ -86,15 +91,59 @@ func (bcs BonusConfigs) Calc(ts string) int {
 	return total
 }
 
-func (bcs BonusConfigs) HasValue(val int) bool {
+func (bcs BonusConfigs) HasValue(val int) (bool, *BonusConfig) {
 	for _, bc := range bcs {
 		ival, err := strconv.Atoi(bc.SubString)
 		if err != nil {
 			continue
 		}
 		if ival == val {
-			return true
+			return true, &bc
 		}
 	}
-	return false
+	return false, nil
 }
+
+func (bcs *BonusConfigs) Load(r io.Reader) error {
+	jb, err := ioutil.ReadAll(r)
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal(jb, bcs)
+}
+
+func (bcs *BonusConfigs) LoadFile(filename string) error {
+	file, err := os.Open(filename)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+	err = bcs.Load(file)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (bcs BonusConfigs) Save(w io.Writer) (int, error) {
+	jb, err := json.MarshalIndent(bcs, "", "\t")
+	if err != nil {
+		return 0, err
+	}
+	jb = append(jb, '\n')
+	return w.Write(jb)
+}
+
+func (bcs BonusConfigs) SaveFile(filename string) error {
+	file, err := os.Create(filename)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+	_, err = bcs.Save(file)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+

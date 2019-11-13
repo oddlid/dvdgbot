@@ -1,15 +1,19 @@
 BINARY := bajsbot.bin
 VERSION := 2019-11-13
 SOURCES := $(wildcard *.go)
-DEPS := larsmonsen/larsmonsen.go leet/leet.go leet/kv.go leet/user.go leet/channel.go leet/scoredata.go leet/bonusconfig.go xkcdbot/xkcdbot.go goodmorning/goodmorning.go quote/quote.go userwatch/userwatch.go timestamp/timestamp.go quoteshuffle/qs.go
+DEPS := $(wildcard leet/*.go larsmonsen/*.go xkcdbot/*.go goodmorning/*.go quote/*.go userwatch/*.go timestamp/*.go quoteshuffle/*.go)
 COMMIT_ID := $(shell git describe --tags --always)
-BUILD_TIME := $(shell date +%FT%T%:z)
-LDFLAGS = -ldflags "-X main.VERSION=${VERSION} -X main.BUILD_DATE=${BUILD_TIME} -X main.COMMIT_ID=${COMMIT_ID} -d -s -w"
+BUILD_TIME := $(shell go run tool/rfc3339date.go)
+LDFLAGS = -ldflags "-X main.VERSION=${VERSION} -X main.BUILD_DATE=${BUILD_TIME} -X main.COMMIT_ID=${COMMIT_ID} -s -w ${DFLAG}"
+
+ifeq ($(UNAME), Linux)
+	DFLAG := -d
+endif
 
 .DEFAULT_GOAL: $(BINARY)
 
 $(BINARY): $(SOURCES) $(DEPS)
-	env CGO_ENABLED=0 go build ${LDFLAGS} -o $@ ${SOURCES}
+	env CGO_ENABLED=0 go build ${LDFLAGS} -o $@ .
 
 .PHONY: install
 install:

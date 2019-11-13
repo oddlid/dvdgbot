@@ -72,16 +72,15 @@ func withinTimeFrame(t time.Time) (bool, TimeCode) {
 	return false, tf
 }
 
-func leet(cmd *bot.Cmd) (string, error) {
-	t := time.Now() // save time as early as possible
-
-	// handle arguments
+func checkArgs(cmd *bot.Cmd) (proceed bool, msg string) {
 	alen := len(cmd.Args)
 	if alen == 1 && "stats" == cmd.Args[0] {
 		if _scoreData.calcInProgress {
-			return "Stats are calculating. Try again in a couple of minutes.", nil
+			msg = "Stats are calculating. Try again in a couple of minutes."
+			return
 		} else {
-			return _scoreData.Stats(cmd.Channel), nil
+			msg = _scoreData.Stats(cmd.Channel)
+			return
 		}
 	} else if alen == 1 && "reload" == cmd.Args[0] {
 		// TODO: Handle load errors and give feedback for BC as well
@@ -91,12 +90,26 @@ func leet(cmd *bot.Cmd) (string, error) {
 		}
 		if !_scoreData.saveInProgress {
 			_scoreData.LoadFile(SCORE_FILE)
-			return "Score data reloaded from file", nil
+			msg = "Score data reloaded from file"
+			return
 		} else {
-			return "A scheduled save is in progress. Will not reload right now.", nil
+			msg = "A scheduled save is in progress. Will not reload right now."
+			return
 		}
 	} else if alen >= 1 {
-		return fmt.Sprintf("Unrecognized argument: %q. Usage: !1337 [stats|reload]", cmd.Args[0]), nil
+		msg = fmt.Sprintf("Unrecognized argument: %q. Usage: !1337 [stats|reload]", cmd.Args[0])
+		return
+	}
+	proceed = true
+	return
+}
+
+func leet(cmd *bot.Cmd) (string, error) {
+	t := time.Now() // save time as early as possible
+
+	proceed, msg := checkArgs(cmd)
+	if !proceed {
+		return msg, nil
 	}
 
 	// don't give a fuck outside accepted time frame

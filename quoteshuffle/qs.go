@@ -56,7 +56,7 @@ func (qd *QuoteData) LoadFile(fileName string) (*QuoteData, error) {
 	if err != nil {
 		return qd, err
 	}
-	_log.WithField("filename", filename).Debug("Quotes loaded from file")
+	_log.WithField("filename", fileName).Debug("Quotes loaded from file")
 	return qd, err
 }
 

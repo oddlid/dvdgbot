@@ -6,8 +6,8 @@ import (
 	"strconv"
 	"time"
 
-	log "github.com/sirupsen/logrus"
 	"github.com/go-chat-bot/bot"
+	log "github.com/sirupsen/logrus"
 )
 
 const (
@@ -38,6 +38,7 @@ var (
 	_scoreData       *ScoreData
 	_bot             *bot.Bot
 	_bonusConfigs    BonusConfigs
+	_log             = log.WithField("plugin", PLUGIN)
 )
 
 func SetParentBot(b *bot.Bot) {
@@ -87,7 +88,7 @@ func checkArgs(cmd *bot.Cmd) (proceed bool, msg string) {
 		// TODO: Handle load errors and give feedback for BC as well
 		err := _bonusConfigs.LoadFile(_bonusConfigFile)
 		if err != nil {
-			log.Error(err)
+			_log.WithError(err).Error("Error lading Bonus Configs from file")
 		}
 		if !_scoreData.saveInProgress {
 			_scoreData.LoadFile(_scoreFile)
@@ -167,7 +168,7 @@ func envDefInt(key string, fallback int) int {
 	}
 	intVal, err := strconv.Atoi(val)
 	if err != nil {
-		log.Error(err)
+		_log.WithError(err).Error("Conversion error")
 		return fallback
 	}
 	return intVal
@@ -187,12 +188,12 @@ func init() {
 
 	_scoreData, err = NewScoreData().LoadFile(_scoreFile)
 	if err != nil {
-		log.Error(err)
+		_log.WithError(err).Error("Error loading scoredata from file")
 	}
 
 	err = _bonusConfigs.LoadFile(_bonusConfigFile)
 	if err != nil {
-		log.Error(err)
+		_log.WithError(err).Error("Error loading Bonus Configs from file")
 	}
 
 	bot.RegisterCommand(

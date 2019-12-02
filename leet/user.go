@@ -37,4 +37,3 @@ func (u *User) Score(points int) (bool, int) {
 	})
 	return true, total
 }
-

@@ -79,4 +79,3 @@ func (c *Channel) GetScoreForEntry(t time.Time) (int, TimeCode) {
 
 	return points, tf
 }
-

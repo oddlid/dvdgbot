@@ -9,8 +9,8 @@ import (
 	"sort"
 	"time"
 
-	log "github.com/sirupsen/logrus"
 	"github.com/go-chat-bot/bot"
+	log "github.com/sirupsen/logrus"
 )
 
 type ScoreData struct {
@@ -45,7 +45,7 @@ func (s *ScoreData) LoadFile(filename string) (*ScoreData, error) {
 	if err != nil {
 		return s, err
 	}
-	log.Infof("%s: Leet stats (re)loaded from file %q", PLUGIN, filename)
+	_log.WithField("filename", filename).Info("Leet stats (re)loaded from file")
 	return s, nil
 }
 
@@ -69,7 +69,10 @@ func (s *ScoreData) SaveFile(filename string) error {
 	if err != nil {
 		return err
 	}
-	log.Infof("%s: Saved %d bytes to %q", PLUGIN, n, filename)
+	_log.WithFields(log.Fields{
+		"bytes":    n,
+		"filename": filename,
+	}).Info("File saved")
 	return nil
 }
 
@@ -81,7 +84,7 @@ func (s *ScoreData) ScheduleSave(filename string, delayMinutes time.Duration) bo
 	time.AfterFunc(delayMinutes*time.Minute, func() {
 		err := s.SaveFile(filename)
 		if err != nil {
-			log.Errorf("%s: Scheduled save failed: %s", PLUGIN, err.Error())
+			_log.WithError(err).Error("Scheduled save failed")
 		}
 		s.saveInProgress = false
 	})

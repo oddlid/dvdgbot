@@ -19,6 +19,10 @@ const (
 	PLUGIN string = "QuoteShuffle"
 )
 
+var (
+	_log = log.WithField("plugin", PLUGIN)
+)
+
 type QuoteData struct {
 	FileName string   `json:"-"`
 	Src      []string `json:"src"`
@@ -52,7 +56,7 @@ func (qd *QuoteData) LoadFile(fileName string) (*QuoteData, error) {
 	if err != nil {
 		return qd, err
 	}
-	log.Debugf("%s: Quotes loaded from file %q", PLUGIN, fileName)
+	_log.WithField("filename", filename).Debug("Quotes loaded from file")
 	return qd, err
 }
 
@@ -81,7 +85,10 @@ func (qd *QuoteData) SaveFile(fileName string) error {
 	if err != nil {
 		return err
 	}
-	log.Debugf("%s: Saved %d bytes to %q", PLUGIN, n, fileName)
+	_log.WithFields(log.Fields{
+		"bytes":    n,
+		"filename": fileName,
+	}).Debug("File saved")
 	return nil
 }
 

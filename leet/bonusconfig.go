@@ -45,7 +45,6 @@ func (bc BonusConfig) Calc(ts string) int {
 	// 13:37:00:0001337 = +(6 * STEP) points
 	// ...
 
-
 	// Search for substring match
 	bc.matchPos = strings.Index(ts, bc.SubString)
 
@@ -146,4 +145,3 @@ func (bcs BonusConfigs) SaveFile(filename string) error {
 	}
 	return nil
 }
-

@@ -2,17 +2,17 @@ package main
 
 import (
 	"fmt"
+	stdLog "log"
 	"os"
 	"time"
 
-	log "github.com/sirupsen/logrus"
-	//"github.com/go-chat-bot/bot"
 	"github.com/go-chat-bot/bot/irc"
 	_ "github.com/oddlid/dvdgbot/larsmonsen"
-	_ "github.com/oddlid/dvdgbot/timestamp"
 	"github.com/oddlid/dvdgbot/leet"
+	_ "github.com/oddlid/dvdgbot/timestamp"
 	"github.com/oddlid/dvdgbot/userwatch"
 	_ "github.com/oddlid/dvdgbot/xkcdbot"
+	log "github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
 	//_ "github.com/go-chat-bot/plugins/chucknorris"
 	//_ "github.com/oddlid/dvdgbot/goodmorning"
@@ -39,36 +39,6 @@ func envDefStr(key, fallback string) string {
 }
 
 func entryPoint(ctx *cli.Context) error {
-	//tls := ctx.Bool("tls")
-	//dbg := ctx.Bool("debug")
-	//serv := ctx.String("server")
-	//nick := ctx.String("nick")
-	//user := ctx.String("user")
-	//pass := ctx.String("password")
-	//chans := ctx.StringSlice("channel")
-
-	//log.WithFields(log.Fields{
-	//	"server":   serv,
-	//	"password": pass,
-	//	"user":     user,
-	//	"nick":     nick,
-	//	"tls":      tls,
-	//	"channels": chans,
-	//}).Debug("Received config:")
-	////	if dbg {
-	////		return nil
-	////	}
-
-	//c := &irc.Config{
-	//	Server:   serv,
-	//	Channels: chans,
-	//	User:     user,
-	//	Nick:     nick,
-	//	Password: pass,
-	//	UseTLS:   tls,
-	//	Debug:    dbg,
-	//}
-
 	c := &irc.Config{
 		Server:   ctx.String("server"),
 		Channels: ctx.StringSlice("channel"),
@@ -149,19 +119,26 @@ func main() {
 		},
 	}
 	app.Before = func(c *cli.Context) error {
-		log.SetOutput(os.Stderr)
-		level, err := log.ParseLevel(c.String("log-level"))
-		if err != nil {
-			log.Fatal(err.Error())
-		}
-		log.SetLevel(level)
+		//log.SetOutput(os.Stderr) // this is the default anyways, from Logrus package
 		if !c.IsSet("log-level") && !c.IsSet("l") && c.Bool("debug") {
 			log.SetLevel(log.DebugLevel)
+		} else {
+			level, err := log.ParseLevel(c.String("log-level"))
+			if err != nil {
+				log.Fatal(err.Error())
+			}
+			log.SetLevel(level)
 		}
 		log.SetFormatter(&log.TextFormatter{
 			DisableTimestamp: false,
 			FullTimestamp:    true,
 		})
+
+		// Overwrite STD logger used in foreign packages
+		stdLog.SetOutput(log.StandardLogger().WriterLevel(log.GetLevel()))
+		// Or:
+		//stdLog.SetOutput(log.StandardLogger().Writer())
+
 		return nil
 	}
 

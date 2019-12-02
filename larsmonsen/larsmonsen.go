@@ -4,20 +4,22 @@ import (
 	"os"
 	"regexp"
 
-	log "github.com/sirupsen/logrus"
 	"github.com/go-chat-bot/bot"
 	"github.com/oddlid/dvdgbot/quoteshuffle"
+	log "github.com/sirupsen/logrus"
 )
 
 const (
+	PLUGIN     = "LarsMonsen"
 	FACTS_FILE = "/tmp/larsmonsenfacts.json"
 	pattern    = "(?i)\\b(lars|monsen)\\b"
 	cmdName    = "larsmonsen"
 )
 
 var (
-	re = regexp.MustCompile(pattern)
-	qd *quoteshuffle.QuoteData
+	qd   *quoteshuffle.QuoteData
+	re   = regexp.MustCompile(pattern)
+	_log = log.WithField("plugin", PLUGIN)
 )
 
 func envDefStr(key, fallback string) string {
@@ -39,7 +41,7 @@ func init() {
 	var err error
 	qd, err = quoteshuffle.New(envDefStr("LARSMONSENFACTS_FILE", FACTS_FILE))
 	if err != nil {
-		log.Error(err)
+		_log.WithError(err).Error("Error loading facts file")
 		return
 	}
 	bot.RegisterPassiveCommand(cmdName, larsmonsen)

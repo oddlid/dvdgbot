@@ -51,6 +51,7 @@ var (
 	_conn    *ircevent.Connection
 	_wd      *WatchData
 	_cfgfile string
+	_log     = log.WithField("plugin", PLUGIN)
 )
 
 type User struct {
@@ -71,7 +72,7 @@ type WatchData struct {
 }
 
 func InitBot(cfg *irc.Config, b *bot.Bot, conn *ircevent.Connection, cfgfile string) error {
-	log.Debug("Initializing UserWatch...")
+	_log.Debug("Initializing UserWatch...")
 	_cfg = cfg
 	_bot = b
 	_conn = conn
@@ -133,7 +134,7 @@ func NewWatchData() *WatchData {
 func (wd *WatchData) Get(channel string) *Channel {
 	c, found := wd.Channels[channel]
 	if !found {
-		log.Debugf("Creating channel %q with empty users", channel)
+		_log.WithField("channel", channel).Debug("Creating channel with empty users")
 		c = &Channel{
 			Users: make(map[string]*User),
 		}
@@ -162,7 +163,10 @@ func (wd *WatchData) SaveFile(filename string) error {
 	if err != nil {
 		return err
 	}
-	log.Debugf("Saved %d bytes to %q", n, filename)
+	_log.WithFields(log.Fields{
+		"filename": filename,
+		"bytes":    n,
+	}).Debug("Userwatch data saved")
 	return nil
 }
 
@@ -177,13 +181,13 @@ func (wd *WatchData) Load(r io.Reader) error {
 func (wd *WatchData) LoadFile(filename string) *WatchData {
 	file, err := os.Open(filename)
 	if err != nil {
-		log.Errorf("WatchData.LoadFile(): Error opening %q - %s", filename, err.Error())
+		_log.WithField("filename", filename).WithError(err).Error("Error opening file")
 		return wd
 	}
 	defer file.Close()
 	err = wd.Load(file)
 	if err != nil {
-		log.Error(err)
+		_log.WithError(err).Error("Error from Load()")
 		return NewWatchData()
 	}
 	return wd
@@ -201,7 +205,7 @@ func (c *Channel) Get(nick string) *User {
 	u, found := c.Users[nick]
 	c.RUnlock()
 	if !found {
-		log.Debugf("Creating new empty user %q", nick)
+		_log.WithField("nick", nick).Debug("Creating new, empty user")
 		u = &User{Nick: nick}
 		c.Lock()
 		c.Users[nick] = u
@@ -248,7 +252,7 @@ func (u *User) SetQMsg(msg string) {
 
 func onJOIN(e *ircevent.Event) {
 	if e.Nick == _conn.GetNick() {
-		log.Debugf("Seems it's myself joining. e.Nick: %s", e.Nick)
+		_log.WithField("nick", e.Nick).Debug("Seems it's myself joining")
 		return
 	}
 
@@ -282,10 +286,9 @@ func onJOIN(e *ircevent.Event) {
 
 func onQUIT(e *ircevent.Event) {
 	if e.Nick == _conn.GetNick() {
-		log.Debugf("Seems it's myself leaving. e.Nick: %s", e.Nick)
+		_log.WithField("nick", e.Nick).Debug("Seems it's myself leaving")
 		return
 	}
-	//log.Debugf("%s is leaving", e.Nick)
 
 	c := _wd.Get(_cfg.Channels[0])
 	if len(c.Users) == 0 {
@@ -354,7 +357,7 @@ func clear() {
 
 func add(channel, nick, msgtype, msg string) (string, error) {
 	if nick == "" || msgtype == "" || msg == "" {
-		log.Error("add(): Empty nick, msgtype or msg")
+		_log.WithField("func", "add()").Error("Empty nick, msgtype or msg")
 		emsg := ADD + " Error: nick, message type and message has to be set"
 		return emsg, fmt.Errorf(emsg)
 	}
@@ -376,7 +379,7 @@ func add(channel, nick, msgtype, msg string) (string, error) {
 
 func del(channel, nick, msgtype string) (string, error) {
 	if nick == "" {
-		log.Error("del(): Empty nick")
+		_log.WithField("func", "del()").Error("Empty nick")
 		emsg := "Error: empty nick"
 		return emsg, fmt.Errorf(emsg)
 	}
@@ -409,11 +412,9 @@ func del(channel, nick, msgtype string) (string, error) {
 }
 
 func safeArgs(num int, args []string) []string {
-	//log.Debugf("safeArgs: Got: %+v", args)
 	alen := len(args)
 	res := make([]string, num)
 	for i := 0; i < num; i++ {
-		//log.Debugf("safeArgs: Loop index: %d", i)
 		if i < alen {
 			res[i] = args[i]
 		} else {

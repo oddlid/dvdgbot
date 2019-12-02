@@ -11,7 +11,8 @@ import (
 )
 
 const (
-	POINTS_MAX   int    = 6
+	POINTS_MAX int    = 6
+	PLUGIN            = "Quote"
 	QUOTE_FILE string = "/tmp/quotes.json"
 )
 
@@ -174,7 +175,7 @@ func vote() (string, error) {
 }
 
 func skojare(cmd *bot.Cmd) (string, error) {
-	log.Debugf("cmd.Args: %q", cmd.Args)
+	_log.WithField("plugin", PLUGIN).Debugf("cmd.Args: %q", cmd.Args)
 }
 
 func init() {

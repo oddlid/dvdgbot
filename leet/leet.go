@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"time"
 
-	log "github.com/Sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 	"github.com/go-chat-bot/bot"
 )
 
@@ -31,13 +31,14 @@ const (
 )
 
 var (
-	_hour         int = DEF_HOUR
-	_minute       int = DEF_MINUTE
-	_scoreData    *ScoreData
-	_bot          *bot.Bot
-	_bonusConfigs BonusConfigs
+	_hour            int
+	_minute          int
+	_scoreFile       string
+	_bonusConfigFile string
+	_scoreData       *ScoreData
+	_bot             *bot.Bot
+	_bonusConfigs    BonusConfigs
 )
-
 
 func SetParentBot(b *bot.Bot) {
 	_bot = b
@@ -84,12 +85,12 @@ func checkArgs(cmd *bot.Cmd) (proceed bool, msg string) {
 		}
 	} else if alen == 1 && "reload" == cmd.Args[0] {
 		// TODO: Handle load errors and give feedback for BC as well
-		err := _bonusConfigs.LoadFile(BONUSCONFIGS_FILE)
+		err := _bonusConfigs.LoadFile(_bonusConfigFile)
 		if err != nil {
 			log.Error(err)
 		}
 		if !_scoreData.saveInProgress {
-			_scoreData.LoadFile(SCORE_FILE)
+			_scoreData.LoadFile(_scoreFile)
 			msg = "Score data reloaded from file"
 			return
 		} else {
@@ -136,7 +137,7 @@ func leet(cmd *bot.Cmd) (string, error) {
 	}
 
 	if success && !_scoreData.saveInProgress {
-		_scoreData.ScheduleSave(SCORE_FILE, delayMinutes+1)
+		_scoreData.ScheduleSave(_scoreFile, delayMinutes+1)
 	}
 
 	if !_scoreData.calcInProgress && _scoreData.Get(cmd.Channel).HasPendingScores() {
@@ -151,49 +152,45 @@ func leet(cmd *bot.Cmd) (string, error) {
 	return "", fmt.Errorf("%s: Reached beyond logic...", PLUGIN)
 }
 
-func pickupEnv() {
-	h := os.Getenv("LEETBOT_HOUR")
-	m := os.Getenv("LEETBOT_MINUTE")
+func envDefStr(key, fallback string) string {
+	val, found := os.LookupEnv(key)
+	if !found {
+		return fallback
+	}
+	return val // might still be empty, if set, but empty in ENV
+}
 
-	var err error
-	if h != "" {
-		_hour, err = strconv.Atoi(h)
-		if err != nil {
-			_hour = DEF_HOUR
-		}
+func envDefInt(key string, fallback int) int {
+	val, found := os.LookupEnv(key)
+	if !found {
+		return fallback
 	}
-	if m != "" {
-		_minute, err = strconv.Atoi(m)
-		if err != nil {
-			_minute = DEF_MINUTE
-		}
+	intVal, err := strconv.Atoi(val)
+	if err != nil {
+		log.Error(err)
+		return fallback
 	}
+	return intVal
+}
+
+func pickupEnv() {
+	_hour = envDefInt("LEETBOT_HOUR", DEF_HOUR)
+	_minute = envDefInt("LEETBOT_MINUTE", DEF_MINUTE)
+	_scoreFile = envDefStr("LEETBOT_SCOREFILE", SCORE_FILE)
+	_bonusConfigFile = envDefStr("LEETBOT_BONUSCONFIGFILE", BONUSCONFIGS_FILE)
 }
 
 func init() {
-	_scoreData = NewScoreData().LoadFile(SCORE_FILE)
-	pickupEnv() // for minute/hour. IMPORTANT: this has to come before bonusconfigs, as they use these values to generate strings
+	pickupEnv()
 
-//	_bonusConfigs.Add(
-//		BonusConfig{
-//			SubString:    fmt.Sprintf("%02d%02d", _hour, _minute), // '1337' when used as intended
-//			PrefixChar:   '0',
-//			UseStep:      true,
-//			StepPoints:   10,
-//			NoStepPoints: 0,
-//		},
-//	)
-//	_bonusConfigs.Add(
-//		BonusConfig{
-//			SubString:    "666", // because, of course...
-//			PrefixChar:   '0',   // not used, as UseStep is false
-//			UseStep:      false, //
-//			StepPoints:   0,     // not used
-//			NoStepPoints: 18,    // 18 points, because 6+6+6 = 18
-//		},
-//	)
+	var err error
 
-	err := _bonusConfigs.LoadFile(BONUSCONFIGS_FILE)
+	_scoreData, err = NewScoreData().LoadFile(_scoreFile)
+	if err != nil {
+		log.Error(err)
+	}
+
+	err = _bonusConfigs.LoadFile(_bonusConfigFile)
 	if err != nil {
 		log.Error(err)
 	}

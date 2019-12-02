@@ -9,7 +9,7 @@ import (
 	"sort"
 	"time"
 
-	log "github.com/Sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 	"github.com/go-chat-bot/bot"
 )
 
@@ -35,20 +35,18 @@ func (s *ScoreData) Load(r io.Reader) error {
 	return json.Unmarshal(jb, s)
 }
 
-func (s *ScoreData) LoadFile(filename string) *ScoreData {
+func (s *ScoreData) LoadFile(filename string) (*ScoreData, error) {
 	file, err := os.Open(filename)
 	if err != nil {
-		log.Errorf("%s: ScoreData.LoadFile() Error: %q", PLUGIN, err.Error())
-		return s
+		return s, err
 	}
 	defer file.Close()
 	err = s.Load(file)
 	if err != nil {
-		log.Error(err)
-		return NewScoreData()
+		return s, err
 	}
 	log.Infof("%s: Leet stats (re)loaded from file %q", PLUGIN, filename)
-	return s
+	return s, nil
 }
 
 func (s *ScoreData) Save(w io.Writer) (int, error) {

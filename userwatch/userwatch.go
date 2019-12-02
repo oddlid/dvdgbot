@@ -26,7 +26,7 @@ import (
 	"sync"
 	"time"
 
-	log "github.com/Sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 	"github.com/go-chat-bot/bot"
 	"github.com/go-chat-bot/bot/irc"
 	ircevent "github.com/thoj/go-ircevent"
@@ -266,18 +266,9 @@ func onJOIN(e *ircevent.Event) {
 		return
 	}
 
-	//_bot.SendMessage(
-	//	e.Arguments[0], // will be the channel name
-	//	msg,
-	//	&bot.User{
-	//		ID:       e.Host,
-	//		Nick:     e.Nick,
-	//		RealName: e.User,
-	//	},
-	//)
 	_bot.SendMessage(
 		bot.OutgoingMessage{
-			e.Arguments[0],
+			e.Arguments[0], // will be the channel name
 			msg,
 			&bot.User{
 				ID:       e.Host,
@@ -311,18 +302,9 @@ func onQUIT(e *ircevent.Event) {
 	}
 
 	// maybe we should loop through all channels and send a msg for each here
-	//_bot.SendMessage(
-	//	_cfg.Channels[0], // on QUIT e.Arguments[0] is empty, so we use this instead, even if not pretty
-	//	msg,
-	//	&bot.User{
-	//		ID:       e.Host,
-	//		Nick:     e.Nick,
-	//		RealName: e.User,
-	//	},
-	//)
 	_bot.SendMessage(
 		bot.OutgoingMessage{
-			_cfg.Channels[0],
+			_cfg.Channels[0], // on QUIT e.Arguments[0] is empty, so we use this instead, even if not pretty
 			msg,
 			&bot.User{
 				ID:       e.Host,

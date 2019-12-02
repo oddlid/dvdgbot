@@ -5,7 +5,7 @@ import (
 	"os"
 	"time"
 
-	log "github.com/Sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 	//"github.com/go-chat-bot/bot"
 	"github.com/go-chat-bot/bot/irc"
 	_ "github.com/oddlid/dvdgbot/larsmonsen"
@@ -30,40 +30,58 @@ var (
 	VERSION    string
 )
 
-func entryPoint(ctx *cli.Context) error {
-	tls := ctx.Bool("tls")
-	dbg := ctx.Bool("debug")
-	serv := ctx.String("server")
-	nick := ctx.String("nick")
-	user := ctx.String("user")
-	pass := ctx.String("password")
-	chans := ctx.StringSlice("channel")
+func envDefStr(key, fallback string) string {
+	val, found := os.LookupEnv(key)
+	if !found {
+		return fallback
+	}
+	return val // might still be empty, if set, but empty in ENV
+}
 
-	log.WithFields(log.Fields{
-		"server":   serv,
-		"password": pass,
-		"user":     user,
-		"nick":     nick,
-		"tls":      tls,
-		"channels": chans,
-	}).Debug("Received config:")
-	//	if dbg {
-	//		return nil
-	//	}
+func entryPoint(ctx *cli.Context) error {
+	//tls := ctx.Bool("tls")
+	//dbg := ctx.Bool("debug")
+	//serv := ctx.String("server")
+	//nick := ctx.String("nick")
+	//user := ctx.String("user")
+	//pass := ctx.String("password")
+	//chans := ctx.StringSlice("channel")
+
+	//log.WithFields(log.Fields{
+	//	"server":   serv,
+	//	"password": pass,
+	//	"user":     user,
+	//	"nick":     nick,
+	//	"tls":      tls,
+	//	"channels": chans,
+	//}).Debug("Received config:")
+	////	if dbg {
+	////		return nil
+	////	}
+
+	//c := &irc.Config{
+	//	Server:   serv,
+	//	Channels: chans,
+	//	User:     user,
+	//	Nick:     nick,
+	//	Password: pass,
+	//	UseTLS:   tls,
+	//	Debug:    dbg,
+	//}
 
 	c := &irc.Config{
-		Server:   serv,
-		Channels: chans,
-		User:     user,
-		Nick:     nick,
-		Password: pass,
-		UseTLS:   tls,
-		Debug:    dbg,
+		Server:   ctx.String("server"),
+		Channels: ctx.StringSlice("channel"),
+		User:     ctx.String("user"),
+		Nick:     ctx.String("nick"),
+		Password: ctx.String("password"),
+		UseTLS:   ctx.Bool("tls"),
+		Debug:    ctx.Bool("debug"),
 	}
 
 	b, ic := irc.SetUpConn(c)
 	leet.SetParentBot(b)
-	err := userwatch.InitBot(c, b, ic, userwatch.DEF_CFGFILE)
+	err := userwatch.InitBot(c, b, ic, envDefStr("USERWATCH_CFGFILE", userwatch.DEF_CFGFILE))
 	if err != nil {
 		return cli.NewExitError(err.Error(), 1)
 	}

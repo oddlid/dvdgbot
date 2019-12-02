@@ -12,7 +12,7 @@ import (
 	"os"
 	"time"
 
-	log "github.com/Sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 )
 
 const (
@@ -29,13 +29,9 @@ func init() {
 	rand.Seed(time.Now().UnixNano())
 }
 
-func New(fileName string) *QuoteData {
+func New(fileName string) (*QuoteData, error) {
 	qd := &QuoteData{FileName: fileName}
-	err := qd.LoadSelf()
-	if err != nil {
-		log.Errorf("%s: New(): Unable to load from %q", PLUGIN, fileName)
-	}
-	return qd
+	return qd, qd.LoadSelf()
 }
 
 func (qd *QuoteData) Load(r io.Reader) error {
@@ -49,13 +45,11 @@ func (qd *QuoteData) Load(r io.Reader) error {
 func (qd *QuoteData) LoadFile(fileName string) (*QuoteData, error) {
 	file, err := os.Open(fileName)
 	if err != nil {
-		log.Errorf("%s: LoadFile() Error: %q", PLUGIN, err.Error())
 		return qd, err
 	}
 	defer file.Close()
 	err = qd.Load(file)
 	if err != nil {
-		log.Errorf("%s: LoadFile() Error: %q", PLUGIN, err.Error())
 		return qd, err
 	}
 	log.Debugf("%s: Quotes loaded from file %q", PLUGIN, fileName)
@@ -80,13 +74,11 @@ func (qd *QuoteData) Save(w io.Writer) (int, error) {
 func (qd *QuoteData) SaveFile(fileName string) error {
 	file, err := os.Create(fileName)
 	if err != nil {
-		log.Errorf("%s: SaveFile() Error: %q", PLUGIN, err.Error())
 		return err
 	}
 	defer file.Close()
 	n, err := qd.Save(file)
 	if err != nil {
-		log.Errorf("%s: SaveFile() Error: %q", PLUGIN, err.Error())
 		return err
 	}
 	log.Debugf("%s: Saved %d bytes to %q", PLUGIN, n, fileName)

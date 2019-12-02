@@ -3,7 +3,7 @@ package quote
 import (
 	"encoding/json"
 	"fmt"
-	log "github.com/Sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 	"github.com/oddlid/bot"
 	"io"
 	"io/ioutil"

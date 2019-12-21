@@ -7,13 +7,14 @@ import (
 	"time"
 
 	"github.com/go-chat-bot/bot/irc"
-	//_ "github.com/oddlid/dvdgbot/larsmonsen"
+	_ "github.com/oddlid/dvdgbot/larsmonsen"
 	"github.com/oddlid/dvdgbot/leet"
 	_ "github.com/oddlid/dvdgbot/timestamp"
-	//"github.com/oddlid/dvdgbot/userwatch"
-	//_ "github.com/oddlid/dvdgbot/xkcdbot"
+	_ "github.com/oddlid/dvdgbot/xkcdbot"
 	log "github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
+
+	//"github.com/oddlid/dvdgbot/userwatch"
 	//_ "github.com/go-chat-bot/plugins/chucknorris"
 	//_ "github.com/oddlid/dvdgbot/goodmorning"
 )
@@ -40,8 +41,8 @@ func envDefStr(key, fallback string) string {
 
 func entryPoint(ctx *cli.Context) error {
 	c := &irc.Config{
-		Server:   ctx.String("server"),
 		Channels: ctx.StringSlice("channel"),
+		Server:   ctx.String("server"),
 		User:     ctx.String("user"),
 		Nick:     ctx.String("nick"),
 		Password: ctx.String("password"),
@@ -49,7 +50,7 @@ func entryPoint(ctx *cli.Context) error {
 		Debug:    ctx.Bool("debug"),
 	}
 
-	b, _ := irc.SetUpConn(c)
+	b, _ := irc.SetUpConn(c) // ic should be second return param here if using userwatch module
 	leet.SetParentBot(b)
 	//err := userwatch.InitBot(c, b, ic, envDefStr("USERWATCH_CFGFILE", userwatch.DEF_CFGFILE))
 	//if err != nil {
@@ -68,7 +69,7 @@ func main() {
 	app.Name = "bajsbot"
 	app.Version = fmt.Sprintf("%s_%s (Compiled: %s)", VERSION, COMMIT_ID, BUILD_DATE)
 	app.Compiled, _ = time.Parse(time.RFC3339, BUILD_DATE)
-	app.Copyright = "(c) 2018 Odd Eivind Ebbesen"
+	app.Copyright = fmt.Sprintf("(C) 2018 - %d, Odd Eivind Ebbesen", time.Now().Year())
 	app.Authors = []cli.Author{
 		cli.Author{
 			Name:  "Odd E. Ebbesen",

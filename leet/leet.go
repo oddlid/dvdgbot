@@ -42,7 +42,7 @@ var (
 	_log             = log.WithField("plugin", PLUGIN)
 )
 
-// SetParentBot sets the internal global reference to an instance of github.com/go-chat-bot/bot
+// SetParentBot sets the internal global reference to an instance of "github.com/go-chat-bot/bot".
 // This reference is used to send messages outside of the registered callback (leet).
 // The bot including this module must call this before using this module.
 func SetParentBot(b *bot.Bot) {

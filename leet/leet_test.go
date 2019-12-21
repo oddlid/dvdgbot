@@ -17,22 +17,22 @@ var (
 
 func getData() *ScoreData {
 	const c string = "#dvdg"
-	sd := NewScoreData()
-	//sd.Get(c)
+	sd := newScoreData()
+	//sd.get(c)
 
 	fmt.Println("Creating Oddlid")
-	o := sd.Get(c).Get("Oddlid")
+	o := sd.get(c).get("Oddlid")
 	fmt.Println("Creating Tord")
-	t := sd.Get(c).Get("Tord")
+	t := sd.get(c).get("Tord")
 	fmt.Println("Creating Snelhest")
-	s := sd.Get(c).Get("Snelhest")
+	s := sd.get(c).get("Snelhest")
 	fmt.Println("Creating bAAAArd")
-	b := sd.Get(c).Get("bAAAArd")
+	b := sd.get(c).get("bAAAArd")
 
-	o.Score(10)
-	t.Score(8)
-	s.Score(6)
-	b.Score(4)
+	o.score(10)
+	t.score(8)
+	s.score(6)
+	b.score(4)
 
 	return sd
 }
@@ -45,7 +45,7 @@ func TestSave(t *testing.T) {
 	}
 	defer file.Close()
 	sd := getData()
-	n, err := sd.Save(file)
+	n, err := sd.save(file)
 	if err != nil {
 		t.Error(err)
 	}
@@ -88,22 +88,22 @@ func TestBonusConfigCalc(t *testing.T) {
 		NoStepPoints: 18,
 	}
 
-	bcs.Add(bc1)
+	bcs.add(bc1)
 
 	for i := 0; i <= 8; i++ {
 		exp = i * bc1.StepPoints
-		got = bcs.Calc(stamps[i])
+		got = bcs.calc(stamps[i])
 		if got != exp {
 			t.Errorf("Expected %d, got %d from substring %s", exp, got, stamps[i])
 		}
 		t.Logf("%s gives %d points bonus", stamps[i], got)
 	}
 
-	bcs.Add(bc2)
+	bcs.add(bc2)
 
 	exp = 18
 	ts := stamps[11]
-	got = bcs.Calc(ts)
+	got = bcs.calc(ts)
 	if got != exp {
 		t.Errorf("Expected %d, got %d from substring %s", exp, got, ts)
 	} else {
@@ -112,7 +112,7 @@ func TestBonusConfigCalc(t *testing.T) {
 
 	exp = 28
 	ts = stamps[10]
-	got = bcs.Calc(ts)
+	got = bcs.calc(ts)
 	if got != exp {
 		t.Errorf("Expected %d, got %d from substring %s", exp, got, ts)
 	} else {
@@ -121,7 +121,7 @@ func TestBonusConfigCalc(t *testing.T) {
 
 	exp = 68
 	ts = stamps[12]
-	got = bcs.Calc(ts)
+	got = bcs.calc(ts)
 	if got != exp {
 		t.Errorf("Expected %d, got %d from substring %s", exp, got, ts)
 	} else {
@@ -218,14 +218,14 @@ func BenchmarkBonusConfigCalc(b *testing.B) {
 		NoStepPoints: 18,
 	}
 
-	bcs.Add(bc1)
-	bcs.Add(bc2)
+	bcs.add(bc1)
+	bcs.add(bc2)
 
 	got := 0
 
 	for _, ts := range stamps {
 		for i := 0; i < b.N; i++ {
-			got = bcs.Calc(ts)
+			got = bcs.calc(ts)
 		}
 		intVar = got
 	}
@@ -236,7 +236,7 @@ func BenchmarkTryScore(b *testing.B) {
 		t, _ := time.Parse(time.RFC3339Nano, tstr)
 		return t
 	}
-	sd := NewScoreData()
+	sd := newScoreData()
 	channel := "#channel"
 	nicks := []struct {
 		nick string
@@ -246,17 +246,17 @@ func BenchmarkTryScore(b *testing.B) {
 		{"Odd_02", tm("2019-04-07T13:37:00.000013370Z")},
 		{"Odd_03", tm("2019-04-07T13:37:00.000133700Z")},
 	}
-	c := sd.Get(channel)
+	c := sd.get(channel)
 	var bres bool
 	var sres string
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
 		for _, n := range nicks {
-			bres, sres = sd.TryScore(channel, n.nick, n.ts)
+			bres, sres = sd.tryScore(channel, n.nick, n.ts)
 		}
 		//c.MergeScoresForRound(c.GetScoresForRound())
-		c.ClearNicksForRound()
+		c.clearNicksForRound()
 	}
 	boolVar = bres
 	strVar = sres
@@ -283,13 +283,13 @@ func BenchmarkTimeFrame(b *testing.B) {
 }
 
 func BenchmarkDidTry(b *testing.B) {
-	sd := NewScoreData()
+	sd := newScoreData()
 	nick := "Odd"
 	channel := "#channel"
 	var result bool
 
 	for i := 0; i < b.N; i++ {
-		result = sd.DidTry(channel, nick)
+		result = sd.didTry(channel, nick)
 	}
 	boolVar = result
 }

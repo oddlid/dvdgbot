@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"os"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/go-chat-bot/bot"
@@ -20,14 +21,14 @@ type ScoreData struct {
 	calcInProgress bool
 }
 
-func NewScoreData() *ScoreData {
+func newScoreData() *ScoreData {
 	return &ScoreData{
 		BotStart: time.Now(),
 		Channels: make(map[string]*Channel),
 	}
 }
 
-func (s *ScoreData) Load(r io.Reader) error {
+func (s *ScoreData) load(r io.Reader) error {
 	jb, err := ioutil.ReadAll(r)
 	if err != nil {
 		return err
@@ -35,13 +36,13 @@ func (s *ScoreData) Load(r io.Reader) error {
 	return json.Unmarshal(jb, s)
 }
 
-func (s *ScoreData) LoadFile(filename string) (*ScoreData, error) {
+func (s *ScoreData) loadFile(filename string) (*ScoreData, error) {
 	file, err := os.Open(filename)
 	if err != nil {
 		return s, err
 	}
 	defer file.Close()
-	err = s.Load(file)
+	err = s.load(file)
 	if err != nil {
 		return s, err
 	}
@@ -49,7 +50,7 @@ func (s *ScoreData) LoadFile(filename string) (*ScoreData, error) {
 	return s, nil
 }
 
-func (s *ScoreData) Save(w io.Writer) (int, error) {
+func (s *ScoreData) save(w io.Writer) (int, error) {
 	jb, err := json.MarshalIndent(s, "", "\t")
 	//jb, err := json.Marshal(s)
 	if err != nil {
@@ -59,13 +60,13 @@ func (s *ScoreData) Save(w io.Writer) (int, error) {
 	return w.Write(jb)
 }
 
-func (s *ScoreData) SaveFile(filename string) error {
+func (s *ScoreData) saveFile(filename string) error {
 	file, err := os.Create(filename)
 	if err != nil {
 		return err
 	}
 	defer file.Close()
-	n, err := s.Save(file)
+	n, err := s.save(file)
 	if err != nil {
 		return err
 	}
@@ -76,13 +77,13 @@ func (s *ScoreData) SaveFile(filename string) error {
 	return nil
 }
 
-func (s *ScoreData) ScheduleSave(filename string, delayMinutes time.Duration) bool {
+func (s *ScoreData) scheduleSave(filename string, delayMinutes time.Duration) bool {
 	if s.saveInProgress {
 		return false
 	}
 	s.saveInProgress = true
 	time.AfterFunc(delayMinutes*time.Minute, func() {
-		err := s.SaveFile(filename)
+		err := s.saveFile(filename)
 		if err != nil {
 			_log.WithError(err).Error("Scheduled save failed")
 		}
@@ -92,24 +93,16 @@ func (s *ScoreData) ScheduleSave(filename string, delayMinutes time.Duration) bo
 }
 
 func (s *ScoreData) calcAndPost(channel string) {
-	c := s.Get(channel)
-	scoreMap := c.GetScoresForRound()
-	c.MergeScoresForRound(scoreMap)
+	c := s.get(channel)
+	scoreMap := c.getScoresForRound()
+	c.mergeScoresForRound(scoreMap)
 
-	// first loop for getting max nicklen
-	nick_maxlen := 0
-	for i := range c.tmpNicks {
-		nlen := len(c.tmpNicks[i])
-		if nlen > nick_maxlen {
-			nick_maxlen = nlen
-		}
-	}
 	msg := fmt.Sprintf("New positive scores for %s:\n", time.Now().Format("2006-01-02"))
-	fstr := fmt.Sprintf("%s%d%s", "%-", nick_maxlen, "s : %04d [+%02d] %s\n")
+	fstr := getPadStrFmt(longestEntryLen(c.tmpNicks), ": %04d [+%02d] %s\n")
 
 	getmsg := func(nick string, total, plus int) string {
 		// The idea here is to print something extra if total points match any configured bonus value
-		has, bc := _bonusConfigs.HasValue(total)
+		has, bc := _bonusConfigs.hasValue(total)
 		if has {
 			return fmt.Sprintf(fstr, nick, total, plus, bc.Greeting)
 		}
@@ -117,22 +110,22 @@ func (s *ScoreData) calcAndPost(channel string) {
 	}
 
 	for _, nick := range c.tmpNicks {
-		msg += getmsg(nick, c.Get(nick).Points, scoreMap[nick])
+		msg += getmsg(nick, c.get(nick).getScore(), scoreMap[nick])
 	}
 
 	_bot.SendMessage(
 		bot.OutgoingMessage{
 			channel,
-			msg,
+			strings.TrimRight(msg, "\n"), // some servers post an empty line if present, so get rid of that
 			&bot.User{},
 			nil,
 		},
 	)
 
-	c.ClearNicksForRound() // clean up, before next round
+	c.clearNicksForRound() // clean up, before next round
 }
 
-func (s *ScoreData) ScheduleCalcScore(channel string, delayMinutes time.Duration) bool {
+func (s *ScoreData) scheduleCalcScore(channel string, delayMinutes time.Duration) bool {
 	if s.calcInProgress {
 		return false
 	}
@@ -144,7 +137,7 @@ func (s *ScoreData) ScheduleCalcScore(channel string, delayMinutes time.Duration
 	return s.calcInProgress
 }
 
-func (s *ScoreData) Get(channel string) *Channel {
+func (s *ScoreData) get(channel string) *Channel {
 	c, found := s.Channels[channel]
 	if !found {
 		c = &Channel{
@@ -155,46 +148,41 @@ func (s *ScoreData) Get(channel string) *Channel {
 	return c
 }
 
-func (s *ScoreData) Rank(channel string) (KVList, int, error) {
-	c := s.Get(channel)
+func (s *ScoreData) rank(channel string) (KVList, error) {
+	c := s.get(channel)
 	if len(c.Users) == 0 {
-		return nil, 0, fmt.Errorf("ScoreData.Rank(): No users with scores for channel %q", channel)
+		return nil, fmt.Errorf("ScoreData.rank(): No users with scores for channel %q", channel)
 	}
-	kl := make(KVList, len(c.Users))
+	kvl := make(KVList, len(c.Users))
 	i := 0
-	nick_maxlen := 0
 	for k, v := range c.Users {
-		kl[i] = KV{k, v.Points}
+		kvl[i] = KV{k, v.Points}
 		i++
-		nlen := len(k)
-		if nlen > nick_maxlen {
-			nick_maxlen = nlen
-		}
 	}
-	sort.Sort(sort.Reverse(kl))
-	return kl, nick_maxlen, nil
+	sort.Sort(sort.Reverse(kvl))
+	return kvl, nil
 }
 
-func (s *ScoreData) Stats(channel string) string {
-	kl, max_nicklen, err := s.Rank(channel)
+func (s *ScoreData) stats(channel string) string {
+	kvl, err := s.rank(channel)
 	if err != nil {
 		return err.Error()
 	}
-	fstr := fmt.Sprintf("%s%d%s", "%-", max_nicklen, "s : %04d\n")
+	fstr := getPadStrFmt(kvl.LongestKey(), ": %04d\n")
 	str := fmt.Sprintf("Stats since %s:\n", s.BotStart.Format(time.RFC3339))
-	for _, kv := range kl {
+	for _, kv := range kvl {
 		str += fmt.Sprintf(fstr, kv.Key, kv.Val)
 	}
 	return str
 }
 
-func (s *ScoreData) DidTry(channel, nick string) bool {
-	return s.Get(channel).Get(nick).didTry
+func (s *ScoreData) didTry(channel, nick string) bool {
+	return s.get(channel).get(nick).hasTried()
 }
 
-func (s *ScoreData) TryScore(channel, nick string, t time.Time) (bool, string) {
-	c := s.Get(channel)
-	points, tf := c.GetScoreForEntry(t)
+func (s *ScoreData) tryScore(channel, nick string, t time.Time) (bool, string) {
+	c := s.get(channel)
+	points, tf := getScoreForEntry(t) // -1 or 0
 
 	if TF_BEFORE == tf || TF_AFTER == tf {
 		return false, ""
@@ -202,8 +190,8 @@ func (s *ScoreData) TryScore(channel, nick string, t time.Time) (bool, string) {
 
 	ts := fmt.Sprintf("[%02d:%02d:%02d:%09d]", t.Hour(), t.Minute(), t.Second(), t.Nanosecond())
 
-	bonusPoints := _bonusConfigs.Calc(fmt.Sprintf("%02d%09d", t.Second(), t.Nanosecond()))
-	_, userTotal := c.Get(nick).Score(points + bonusPoints)
+	bonusPoints := _bonusConfigs.calc(fmt.Sprintf("%02d%09d", t.Second(), t.Nanosecond()))
+	_, userTotal := c.get(nick).score(points + bonusPoints)
 
 	missTmpl := fmt.Sprintf("%s Too %s, sucker! %s: %d", ts, "%s", nick, userTotal)
 	if bonusPoints > 0 {
@@ -216,7 +204,7 @@ func (s *ScoreData) TryScore(channel, nick string, t time.Time) (bool, string) {
 		return true, fmt.Sprintf(missTmpl, "late")
 	}
 
-	rank := c.AddNickForRound(nick) // how many points is calculated from how many times this is called, later on
+	rank := c.addNickForRound(nick) // how many points is calculated from how many times this is called, later on
 
 	ret := fmt.Sprintf("%s Whoop! %s: #%d", ts, nick, rank)
 	if bonusPoints > 0 {

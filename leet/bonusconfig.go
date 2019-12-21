@@ -33,7 +33,7 @@ func (bd BonusConfig) hasHomogenicPrefix(ts string) bool {
 	return true
 }
 
-func (bc BonusConfig) Calc(ts string) int {
+func (bc BonusConfig) calc(ts string) int {
 	// We use the given hour and minute for point patterns.
 	// The farther to the right the pattern occurs, the more points.
 	// So, if hour = 13, minute = 37, we'd get something like this:
@@ -78,19 +78,19 @@ func (bc BonusConfig) Calc(ts string) int {
 	return (bc.matchPos + 1) * bc.StepPoints
 }
 
-func (bcs *BonusConfigs) Add(bc BonusConfig) {
+func (bcs *BonusConfigs) add(bc BonusConfig) {
 	*bcs = append(*bcs, bc)
 }
 
-func (bcs BonusConfigs) Calc(ts string) int {
+func (bcs BonusConfigs) calc(ts string) int {
 	total := 0
 	for _, bc := range bcs {
-		total += bc.Calc(ts)
+		total += bc.calc(ts)
 	}
 	return total
 }
 
-func (bcs BonusConfigs) HasValue(val int) (bool, *BonusConfig) {
+func (bcs BonusConfigs) hasValue(val int) (bool, *BonusConfig) {
 	for _, bc := range bcs {
 		ival, err := strconv.Atoi(bc.SubString)
 		if err != nil {
@@ -103,7 +103,7 @@ func (bcs BonusConfigs) HasValue(val int) (bool, *BonusConfig) {
 	return false, nil
 }
 
-func (bcs *BonusConfigs) Load(r io.Reader) error {
+func (bcs *BonusConfigs) load(r io.Reader) error {
 	jb, err := ioutil.ReadAll(r)
 	if err != nil {
 		return err
@@ -111,20 +111,20 @@ func (bcs *BonusConfigs) Load(r io.Reader) error {
 	return json.Unmarshal(jb, bcs)
 }
 
-func (bcs *BonusConfigs) LoadFile(filename string) error {
+func (bcs *BonusConfigs) loadFile(filename string) error {
 	file, err := os.Open(filename)
 	if err != nil {
 		return err
 	}
 	defer file.Close()
-	err = bcs.Load(file)
+	err = bcs.load(file)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func (bcs BonusConfigs) Save(w io.Writer) (int, error) {
+func (bcs BonusConfigs) save(w io.Writer) (int, error) {
 	jb, err := json.MarshalIndent(bcs, "", "\t")
 	if err != nil {
 		return 0, err
@@ -133,13 +133,13 @@ func (bcs BonusConfigs) Save(w io.Writer) (int, error) {
 	return w.Write(jb)
 }
 
-func (bcs BonusConfigs) SaveFile(filename string) error {
+func (bcs BonusConfigs) saveFile(filename string) error {
 	file, err := os.Create(filename)
 	if err != nil {
 		return err
 	}
 	defer file.Close()
-	_, err = bcs.Save(file)
+	_, err = bcs.save(file)
 	if err != nil {
 		return err
 	}

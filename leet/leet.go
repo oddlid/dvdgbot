@@ -4,19 +4,20 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-chat-bot/bot"
 	log "github.com/sirupsen/logrus"
 )
 
+// Constants used for module settings, unless corresponding env vars are given
 const (
-	DEF_HOUR          = 13
-	DEF_MINUTE        = 37
-	BONUS_STEP        = 10
-	SCORE_FILE        = "/tmp/leetbot_scores.json"
-	BONUSCONFIGS_FILE = "/tmp/leetbot_bonusconfigs.json"
-	PLUGIN            = "LeetBot"
+	DEF_HOUR          = 13                               // Override with env var LEETBOT_HOUR
+	DEF_MINUTE        = 37                               // Override with env var LEETBOT_MINUTE
+	SCORE_FILE        = "/tmp/leetbot_scores.json"       // Override with env var LEETBOT_MINUTE
+	BONUSCONFIGS_FILE = "/tmp/leetbot_bonusconfigs.json" // Override with env var LEETBOT_BONUSCONFIGFILE
+	PLUGIN            = "LeetBot"                        // Just used for log output
 )
 
 type TimeCode int
@@ -41,8 +42,26 @@ var (
 	_log             = log.WithField("plugin", PLUGIN)
 )
 
+// SetParentBot sets the internal global reference to an instance of github.com/go-chat-bot/bot
+// This reference is used to send messages outside of the registered callback (leet).
+// The bot including this module must call this before using this module.
 func SetParentBot(b *bot.Bot) {
 	_bot = b
+}
+
+func getPadStrFmt(alignAt int, format string) string {
+	return fmt.Sprintf("%s%d%s", "%-", alignAt, "s "+format)
+}
+
+func longestEntryLen(s []string) int {
+	maxlen := 0
+	for i := range s {
+		nlen := len(s[i])
+		if nlen > maxlen {
+			maxlen = nlen
+		}
+	}
+	return maxlen
 }
 
 func timeFrame(t time.Time) TimeCode {
@@ -68,10 +87,23 @@ func timeFrame(t time.Time) TimeCode {
 
 func withinTimeFrame(t time.Time) (bool, TimeCode) {
 	tf := timeFrame(t)
-	if tf == TF_EARLY || tf == TF_ONTIME || tf == TF_LATE {
+	if TF_EARLY == tf || TF_ONTIME == tf || TF_LATE == tf {
 		return true, tf
 	}
 	return false, tf
+}
+
+func getScoreForEntry(t time.Time) (int, TimeCode) {
+	var points int
+	tf := timeFrame(t)
+
+	if TF_EARLY == tf || TF_LATE == tf {
+		points = -1
+	} else {
+		points = 0 // will be set later if on time
+	}
+
+	return points, tf
 }
 
 func checkArgs(cmd *bot.Cmd) (proceed bool, msg string) {
@@ -81,17 +113,17 @@ func checkArgs(cmd *bot.Cmd) (proceed bool, msg string) {
 			msg = "Stats are calculating. Try again in a couple of minutes."
 			return
 		} else {
-			msg = _scoreData.Stats(cmd.Channel)
+			msg = _scoreData.stats(cmd.Channel)
 			return
 		}
 	} else if alen == 1 && "reload" == cmd.Args[0] {
 		// TODO: Handle load errors and give feedback for BC as well
-		err := _bonusConfigs.LoadFile(_bonusConfigFile)
+		err := _bonusConfigs.loadFile(_bonusConfigFile)
 		if err != nil {
 			_log.WithError(err).Error("Error lading Bonus Configs from file")
 		}
 		if !_scoreData.saveInProgress {
-			_scoreData.LoadFile(_scoreFile)
+			_scoreData.loadFile(_scoreFile)
 			msg = "Score data reloaded from file"
 			return
 		} else {
@@ -111,7 +143,7 @@ func leet(cmd *bot.Cmd) (string, error) {
 
 	proceed, msg := checkArgs(cmd)
 	if !proceed {
-		return msg, nil
+		return strings.TrimRight(msg, "\n"), nil
 	}
 
 	// don't give a fuck outside accepted time frame
@@ -121,11 +153,11 @@ func leet(cmd *bot.Cmd) (string, error) {
 	}
 
 	// is the user spamming?
-	if _scoreData.DidTry(cmd.Channel, cmd.User.Nick) {
+	if _scoreData.didTry(cmd.Channel, cmd.User.Nick) {
 		return fmt.Sprintf("%s: Stop spamming!", cmd.User.Nick), nil
 	}
 
-	success, msg := _scoreData.TryScore(cmd.Channel, cmd.User.Nick, t)
+	success, msg := _scoreData.tryScore(cmd.Channel, cmd.User.Nick, t)
 
 	// at this point, data might have changed, and should be saved
 	var delayMinutes time.Duration
@@ -138,15 +170,15 @@ func leet(cmd *bot.Cmd) (string, error) {
 	}
 
 	if success && !_scoreData.saveInProgress {
-		_scoreData.ScheduleSave(_scoreFile, delayMinutes+1)
+		_scoreData.scheduleSave(_scoreFile, delayMinutes+1)
 	}
 
-	if !_scoreData.calcInProgress && _scoreData.Get(cmd.Channel).HasPendingScores() {
-		_scoreData.ScheduleCalcScore(cmd.Channel, delayMinutes)
+	if !_scoreData.calcInProgress && _scoreData.get(cmd.Channel).hasPendingScores() {
+		_scoreData.scheduleCalcScore(cmd.Channel, delayMinutes)
 	}
 
 	if success {
-		return msg, nil
+		return strings.TrimRight(msg, "\n"), nil
 	}
 
 	// bogus
@@ -186,12 +218,12 @@ func init() {
 
 	var err error
 
-	_scoreData, err = NewScoreData().LoadFile(_scoreFile)
+	_scoreData, err = newScoreData().loadFile(_scoreFile)
 	if err != nil {
 		_log.WithError(err).Error("Error loading scoredata from file")
 	}
 
-	err = _bonusConfigs.LoadFile(_bonusConfigFile)
+	err = _bonusConfigs.loadFile(_bonusConfigFile)
 	if err != nil {
 		_log.WithError(err).Error("Error loading Bonus Configs from file")
 	}

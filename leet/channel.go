@@ -2,7 +2,6 @@ package leet
 
 import (
 	"sync"
-	"time"
 )
 
 type Channel struct {
@@ -11,7 +10,7 @@ type Channel struct {
 	tmpNicks []string         // used for storing who participated in a specific round. Reset after calculation.
 }
 
-func (c *Channel) Get(nick string) *User {
+func (c *Channel) get(nick string) *User {
 	c.RLock()
 	user, found := c.Users[nick]
 	c.RUnlock()
@@ -24,13 +23,13 @@ func (c *Channel) Get(nick string) *User {
 	return user
 }
 
-func (c *Channel) HasPendingScores() bool {
+func (c *Channel) hasPendingScores() bool {
 	c.RLock()
 	defer c.RUnlock()
 	return c.tmpNicks != nil && len(c.tmpNicks) > 0
 }
 
-func (c *Channel) AddNickForRound(nick string) int {
+func (c *Channel) addNickForRound(nick string) int {
 	// first in gets the most points, last the least
 	c.Lock()
 	defer c.Unlock()
@@ -38,14 +37,14 @@ func (c *Channel) AddNickForRound(nick string) int {
 	return len(c.tmpNicks) // returns first place, second place etc
 }
 
-func (c *Channel) ClearNicksForRound() {
+func (c *Channel) clearNicksForRound() {
 	c.Lock()
 	c.tmpNicks = nil
 	c.Unlock()
 }
 
 // GetScoresForRound returns a map of nicks with the scores for this round
-func (c *Channel) GetScoresForRound() map[string]int {
+func (c *Channel) getScoresForRound() map[string]int {
 	if c.tmpNicks == nil || len(c.tmpNicks) == 0 {
 		return nil
 	}
@@ -60,22 +59,8 @@ func (c *Channel) GetScoresForRound() map[string]int {
 	return nickMap
 }
 
-func (c *Channel) MergeScoresForRound(newScores map[string]int) {
+func (c *Channel) mergeScoresForRound(newScores map[string]int) {
 	for nick := range newScores {
-		c.Get(nick).AddScore(newScores[nick])
+		c.get(nick).addScore(newScores[nick])
 	}
-}
-
-func (c *Channel) GetScoreForEntry(t time.Time) (int, TimeCode) {
-	// Don't know why I made this a method on Channel, as it does not use it
-	var points int
-	tf := timeFrame(t)
-
-	if TF_EARLY == tf || TF_LATE == tf {
-		points = -1
-	} else {
-		points = 0 // will be set later if on time
-	}
-
-	return points, tf
 }

@@ -7,11 +7,11 @@ import (
 	"time"
 
 	"github.com/go-chat-bot/bot/irc"
-	_ "github.com/oddlid/dvdgbot/larsmonsen"
+	//_ "github.com/oddlid/dvdgbot/larsmonsen"
 	"github.com/oddlid/dvdgbot/leet"
 	_ "github.com/oddlid/dvdgbot/timestamp"
-	"github.com/oddlid/dvdgbot/userwatch"
-	_ "github.com/oddlid/dvdgbot/xkcdbot"
+	//"github.com/oddlid/dvdgbot/userwatch"
+	//_ "github.com/oddlid/dvdgbot/xkcdbot"
 	log "github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
 	//_ "github.com/go-chat-bot/plugins/chucknorris"
@@ -49,12 +49,14 @@ func entryPoint(ctx *cli.Context) error {
 		Debug:    ctx.Bool("debug"),
 	}
 
-	b, ic := irc.SetUpConn(c)
+	b, _ := irc.SetUpConn(c)
 	leet.SetParentBot(b)
-	err := userwatch.InitBot(c, b, ic, envDefStr("USERWATCH_CFGFILE", userwatch.DEF_CFGFILE))
-	if err != nil {
-		return cli.NewExitError(err.Error(), 1)
-	}
+	//err := userwatch.InitBot(c, b, ic, envDefStr("USERWATCH_CFGFILE", userwatch.DEF_CFGFILE))
+	//if err != nil {
+	//	return cli.NewExitError(err.Error(), 1)
+	//}
+
+	//irc.SetUpConn(c)
 
 	irc.Run(nil) // pass nil here, as we passed c to SetUpConn
 

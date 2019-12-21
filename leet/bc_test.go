@@ -30,7 +30,7 @@ var (
 )
 
 func TestBCWriteFile(t *testing.T) {
-	err := _testbcs.SaveFile(BC_TEST_JSON_FILE)
+	err := _testbcs.saveFile(BC_TEST_JSON_FILE)
 	if err != nil {
 		t.Error(err)
 	}
@@ -38,7 +38,7 @@ func TestBCWriteFile(t *testing.T) {
 
 func TestBCReadFile(t *testing.T) {
 	var bcs BonusConfigs
-	err := bcs.LoadFile(BC_TEST_JSON_FILE)
+	err := bcs.loadFile(BC_TEST_JSON_FILE)
 	if err != nil {
 		t.Error(err)
 	}

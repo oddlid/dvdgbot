@@ -6,6 +6,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/go-chat-bot/bot"
 )
 
 var (
@@ -294,3 +296,84 @@ func BenchmarkDidTry(b *testing.B) {
 	boolVar = result
 }
 
+func BenchmarkLeet(b *testing.B) {
+	// I'd like to see if I can mock the whole process, and see how tight posts could get
+	// I don't quite know what's required to fill in to the Cmd struct, so we'll see...
+	cmd := &bot.Cmd{
+		Raw:     "",
+		Channel: "#channel",
+		ChannelData: &bot.ChannelData{
+			Protocol:  "",
+			Server:    "",
+			Channel:   "#channel",
+			HumanName: "",
+			IsPrivate: false,
+		},
+		User: &bot.User{
+			ID:       "",
+			Nick:     "",
+			RealName: "",
+			IsBot:    false,
+		},
+		Message: "!1337",
+		MessageData: &bot.Message{
+			Text:     "!1337",
+			IsAction: false,
+			ProtoMsg: nil,
+		},
+		Command: "",
+		RawArgs: "",
+		Args:    nil,
+	}
+
+	//var result string
+	for i := 0; i < b.N; i++ {
+		cmd.User.Nick = fmt.Sprintf("Nick_%d", i)
+		msg, err := leet(cmd)
+		if (err != nil) {
+			b.Log(err)
+			b.FailNow()
+		}
+		b.Log(msg)
+	}
+}
+
+func BenchmarkHitBonus(b *testing.B) {
+	cmd := &bot.Cmd{
+		Raw:     "",
+		Channel: "#channel",
+		ChannelData: &bot.ChannelData{
+			Protocol:  "",
+			Server:    "",
+			Channel:   "#channel",
+			HumanName: "",
+			IsPrivate: false,
+		},
+		User: &bot.User{
+			ID:       "",
+			Nick:     "",
+			RealName: "",
+			IsBot:    false,
+		},
+		Message: "!1337",
+		MessageData: &bot.Message{
+			Text:     "!1337",
+			IsAction: false,
+			ProtoMsg: nil,
+		},
+		Command: "",
+		RawArgs: "",
+		Args:    nil,
+	}
+	for i := 0; i < b.N; i++ {
+		cmd.User.Nick = fmt.Sprintf("Nick_%d", i)
+		msg, err := leet(cmd)
+		if (err != nil) {
+			b.Log(err)
+			b.FailNow()
+		}
+		if (strings.Index(msg, "bonus") > -1) {
+			b.Log(msg)
+		}
+	}
+}

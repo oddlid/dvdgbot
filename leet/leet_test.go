@@ -6,8 +6,14 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"math/rand"
 
 	"github.com/go-chat-bot/bot"
+	log "github.com/sirupsen/logrus"
+)
+
+const (
+	TST_CHAN = "#dvdg"
 )
 
 var (
@@ -18,18 +24,18 @@ var (
 )
 
 func getData() *ScoreData {
-	const c string = "#dvdg"
+	//const c string = "#dvdg"
 	sd := newScoreData()
 	//sd.get(c)
 
 	fmt.Println("Creating Oddlid")
-	o := sd.get(c).get("Oddlid")
+	o := sd.get(TST_CHAN).get("Oddlid")
 	fmt.Println("Creating Tord")
-	t := sd.get(c).get("Tord")
+	t := sd.get(TST_CHAN).get("Tord")
 	fmt.Println("Creating Snelhest")
-	s := sd.get(c).get("Snelhest")
+	s := sd.get(TST_CHAN).get("Snelhest")
 	fmt.Println("Creating bAAAArd")
-	b := sd.get(c).get("bAAAArd")
+	b := sd.get(TST_CHAN).get("bAAAArd")
 
 	o.score(10)
 	t.score(8)
@@ -52,6 +58,59 @@ func TestSave(t *testing.T) {
 		t.Error(err)
 	}
 	t.Logf("Saved %d bytes to %q", n, fname)
+}
+
+//func TestInspection(t *testing.T) {
+//	sd := getData()
+//	c := sd.get(TST_CHAN)
+//	c.InspectionTax = 5
+//	for k, _ := range c.Users {
+//		c.addNickForRound(k)
+//	}
+//	t.Logf("Had  | withdrawn | now  | nick")
+//	for k, v := range c.Users {
+//		_, sub := c.randomInspect()
+//		total := v.Points - sub
+//		t.Logf("%04d | %04d      | %04d | %s", v.Points, sub, total, k)
+//		if total < 0 {
+//			t.Log("Subtracted beyond 0")
+//			t.FailNow()
+//		}
+//	}
+//}
+
+func TestInspection(t *testing.T) {
+	log.SetLevel(log.DebugLevel)
+	sd := getData()
+	c := sd.get(TST_CHAN)
+	c.InspectionTax = 50.14 // % of total points for the user with the least points in the current round
+	for k, _ := range c.Users {
+		c.addNickForRound(k) // adds to c.tmpNicks
+	}
+
+	//weekday := int(time.Now().Weekday())
+	rand.Seed(time.Now().UnixNano())
+
+	for i := 0; i < 100; i++ {
+		//rndday := rand.Intn(7)
+		//if rndday != weekday {
+		//	t.Logf("Random value (%d) did not match weekday %d. Loop: %d", rndday, weekday, i)
+		//	continue
+		//}
+
+		nickIdx, tax := c.randomInspect()
+		if nickIdx < 0 {
+			//t.Error("Got negative index")
+			continue
+		}
+		//t.Logf("Nick index: %d, tax: %d", nickIdx, tax)
+		nick := c.tmpNicks[nickIdx]
+		if tax > 0 {
+			t.Logf("[%02d] %s was selected for inspection and lost %d points", i, nick, tax)
+		} else {
+			t.Logf("[%02d] %s was selected for inspection, but got away with a warning", i, nick)
+		}
+	}
 }
 
 func TestBonusConfigCalc(t *testing.T) {

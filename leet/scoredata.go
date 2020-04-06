@@ -108,6 +108,7 @@ func (s *ScoreData) calcAndPost(channel string) {
 		}
 		return fmt.Sprintf(fstr, nick, total, plus, "")
 	}
+	// This is the point where to calc random inspection and loss of points!
 
 	for _, nick := range c.tmpNicks {
 		msg += getmsg(nick, c.get(nick).getScore(), scoreMap[nick])
@@ -121,6 +122,36 @@ func (s *ScoreData) calcAndPost(channel string) {
 			nil,
 		},
 	)
+
+	// This is probably the best point to trigger an inspection and post the results
+	// At any round, one contestant will be selected. But only a contestant, not someone who didn't participate this day
+	// Selection is regular random of index between the the available ones in $scoreMap
+	// So we let the happy news come first, and then we get mean and calculate the random victim for the day, and post
+	// that with it's updated/subtracted points value, but also if they were selected, but stayed clear.
+	idx, tax := c.randomInspect()
+	if idx > -1 {
+		nick := c.tmpNicks[idx]
+		user := c.get(nick)
+		if tax > 0 {
+			user.addScore(-tax)
+			msg = fmt.Sprintf(
+				"%s was randomly selected for taxation and lost %d points (now: %d points)",
+				nick,
+				tax,
+				user.getScore(),
+			)
+		} else {
+			msg = fmt.Sprintf("%s was randomly selected for taxation, but got off with a slap on the wrist ;)", nick)
+		}
+		_bot.SendMessage(
+			bot.OutgoingMessage{
+				channel,
+				msg,
+				&bot.User{},
+				nil,
+			},
+		)
+	}
 
 	c.clearNicksForRound() // clean up, before next round
 }

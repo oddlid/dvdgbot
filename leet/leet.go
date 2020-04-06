@@ -2,6 +2,7 @@ package leet
 
 import (
 	"fmt"
+	"math/rand"
 	"os"
 	"strconv"
 	"strings"
@@ -234,4 +235,6 @@ func init() {
 		"[stats|reload]",
 		leet,
 	)
+	// Init rand for picking out the sore loser of the day
+	rand.Seed(time.Now().UnixNano())
 }

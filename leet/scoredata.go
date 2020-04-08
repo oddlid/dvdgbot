@@ -127,7 +127,7 @@ func (s *ScoreData) calcAndPost(channel string) {
 	// At any round, one contestant will be selected. But only a contestant, not someone who didn't participate this day
 	// Selection is regular random of index between the the available ones in $scoreMap
 	// So we let the happy news come first, and then we get mean and calculate the random victim for the day, and post
-	// that with it's updated/subtracted points value, but also if they were selected, but stayed clear.
+	// that with its updated/subtracted points value, but also if they were selected, but stayed clear.
 	idx, tax := c.randomInspect()
 	if idx > -1 {
 		nick := c.tmpNicks[idx]
@@ -221,12 +221,17 @@ func (s *ScoreData) tryScore(channel, nick string, t time.Time) (bool, string) {
 
 	ts := fmt.Sprintf("[%02d:%02d:%02d:%09d]", t.Hour(), t.Minute(), t.Second(), t.Nanosecond())
 
-	bonusPoints := _bonusConfigs.calc(fmt.Sprintf("%02d%09d", t.Second(), t.Nanosecond()))
+	// This here is what makes it too hard to bother to get a custom greeting for a bonus, since
+	// we add up the bonus points, but can't really add up greetings...
+	//bonusPoints := _bonusConfigs.calc(fmt.Sprintf("%02d%09d", t.Second(), t.Nanosecond()))
+	brs := _bonusConfigs.calc(fmt.Sprintf("%02d%09d", t.Second(), t.Nanosecond()))
+	bonusPoints := brs.TotalBonus()
 	_, userTotal := c.get(nick).score(points + bonusPoints)
 
 	missTmpl := fmt.Sprintf("%s Too %s, sucker! %s: %d", ts, "%s", nick, userTotal)
 	if bonusPoints > 0 {
-		missTmpl += fmt.Sprintf(" (but you got %d bonus points!)", bonusPoints)
+		//missTmpl += fmt.Sprintf(" (but you got %d bonus points!)", bonusPoints)
+		missTmpl += fmt.Sprintf(" (but: %s)", brs)
 	}
 
 	if TF_EARLY == tf {
@@ -239,7 +244,8 @@ func (s *ScoreData) tryScore(channel, nick string, t time.Time) (bool, string) {
 
 	ret := fmt.Sprintf("%s Whoop! %s: #%d", ts, nick, rank)
 	if bonusPoints > 0 {
-		ret = fmt.Sprintf("%s (+%d points bonus!!!)", ret, bonusPoints)
+		//ret = fmt.Sprintf("%s (+%d points bonus!!!)", ret, bonusPoints)
+		ret = fmt.Sprintf("%s (%s)", ret, brs)
 	}
 
 	return true, ret

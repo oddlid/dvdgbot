@@ -135,7 +135,7 @@ func (c *Channel) shouldInspect() bool {
 	return wd == rnd
 }
 
-// Return index in c.tmpNicks and how many points minus, if selected, otherwise -1 and 0
+// Return index in c.tmpNicks and how many points minus, if selected, otherwise -1 (or -2) and 0
 func (c *Channel) randomInspect() (int, int) {
 	llog := _log.WithField("func", "randomInspect")
 	if !c.shouldInspect() {

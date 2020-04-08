@@ -153,7 +153,9 @@ func TestBonusConfigCalc(t *testing.T) {
 
 	for i := 0; i <= 8; i++ {
 		exp = i * bc1.StepPoints
-		got = bcs.calc(stamps[i])
+		//got = bcs.calc(stamps[i])
+		brs := bcs.calc(stamps[i])
+		got = brs.TotalBonus()
 		if got != exp {
 			t.Errorf("Expected %d, got %d from substring %s", exp, got, stamps[i])
 		}
@@ -164,7 +166,9 @@ func TestBonusConfigCalc(t *testing.T) {
 
 	exp = 18
 	ts := stamps[11]
-	got = bcs.calc(ts)
+	//got = bcs.calc(ts)
+	brs := bcs.calc(ts)
+	got = brs.TotalBonus()
 	if got != exp {
 		t.Errorf("Expected %d, got %d from substring %s", exp, got, ts)
 	} else {
@@ -173,7 +177,9 @@ func TestBonusConfigCalc(t *testing.T) {
 
 	exp = 28
 	ts = stamps[10]
-	got = bcs.calc(ts)
+	//got = bcs.calc(ts)
+	brs = bcs.calc(ts)
+	got = brs.TotalBonus()
 	if got != exp {
 		t.Errorf("Expected %d, got %d from substring %s", exp, got, ts)
 	} else {
@@ -182,7 +188,9 @@ func TestBonusConfigCalc(t *testing.T) {
 
 	exp = 68
 	ts = stamps[12]
-	got = bcs.calc(ts)
+	//got = bcs.calc(ts)
+	brs = bcs.calc(ts)
+	got = brs.TotalBonus()
 	if got != exp {
 		t.Errorf("Expected %d, got %d from substring %s", exp, got, ts)
 	} else {
@@ -286,7 +294,9 @@ func BenchmarkBonusConfigCalc(b *testing.B) {
 
 	for _, ts := range stamps {
 		for i := 0; i < b.N; i++ {
-			got = bcs.calc(ts)
+			//got = bcs.calc(ts)
+			brs := bcs.calc(ts)
+			got = brs.TotalBonus()
 		}
 		intVar = got
 	}
@@ -432,6 +442,46 @@ func BenchmarkHitBonus(b *testing.B) {
 			b.FailNow()
 		}
 		if (strings.Index(msg, "bonus") > -1) {
+			b.Log(msg)
+		}
+	}
+}
+
+func BenchmarkHit1337(b *testing.B) {
+	cmd := &bot.Cmd{
+		Raw:     "",
+		Channel: "#channel",
+		ChannelData: &bot.ChannelData{
+			Protocol:  "",
+			Server:    "",
+			Channel:   "#channel",
+			HumanName: "",
+			IsPrivate: false,
+		},
+		User: &bot.User{
+			ID:       "",
+			Nick:     "",
+			RealName: "",
+			IsBot:    false,
+		},
+		Message: "!1337",
+		MessageData: &bot.Message{
+			Text:     "!1337",
+			IsAction: false,
+			ProtoMsg: nil,
+		},
+		Command: "",
+		RawArgs: "",
+		Args:    nil,
+	}
+	for i := 0; i < b.N; i++ {
+		cmd.User.Nick = fmt.Sprintf("Nick_%d", i)
+		msg, err := leet(cmd)
+		if (err != nil) {
+			b.Log(err)
+			b.FailNow()
+		}
+		if (strings.Index(msg, "[1337") > -1) {
 			b.Log(msg)
 		}
 	}

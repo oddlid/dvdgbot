@@ -2,6 +2,7 @@ package leet
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
@@ -21,6 +22,39 @@ type BonusConfig struct {
 
 type BonusConfigs []BonusConfig
 
+type BonusReturn struct {
+	Points int
+	Match  string
+	Msg    string
+}
+
+type BonusReturns []BonusReturn
+
+func (br BonusReturn) String() string {
+	return fmt.Sprintf("[%s=%d]: %s", br.Match, br.Points, br.Msg)
+}
+
+func (brs BonusReturns) TotalBonus() int {
+	total := 0
+	for _, br := range brs {
+		total += br.Points
+	}
+	return total
+}
+
+func (brs BonusReturns) String() string {
+	//return fmt.Sprintf("+%d bonus! : %s", brs.TotalBonus(), strings.Join(brs, ", "))
+	var sb strings.Builder
+	sb.WriteString(fmt.Sprintf("+%d points bonus! : ", brs.TotalBonus()))
+	for i, br := range brs {
+		if (i > 0) {
+			sb.WriteString(" + ")
+		}
+		sb.WriteString(br.String())
+	}
+	return sb.String()
+}
+
 func (bd BonusConfig) hasHomogenicPrefix(ts string) bool {
 	for i, r := range ts {
 		if r != bd.PrefixChar {
@@ -33,7 +67,7 @@ func (bd BonusConfig) hasHomogenicPrefix(ts string) bool {
 	return true
 }
 
-func (bc BonusConfig) calc(ts string) int {
+func (bc BonusConfig) calc(ts string) BonusReturn {
 	// We use the given hour and minute for point patterns.
 	// The farther to the right the pattern occurs, the more points.
 	// So, if hour = 13, minute = 37, we'd get something like this:
@@ -50,19 +84,22 @@ func (bc BonusConfig) calc(ts string) int {
 
 	// There is no substring match, so we return 0 and don't bother with other checks
 	if bc.matchPos == -1 {
-		return 0
+		//return 0
+		return BonusReturn{0, "", ""}
 	}
 
 	// We have a match, but don't care about the substring position,
 	//so we return points for any match without calculation
 	if !bc.UseStep {
-		return bc.NoStepPoints
+		//return bc.NoStepPoints
+		return BonusReturn{bc.NoStepPoints, bc.SubString, bc.Greeting}
 	}
 
 	// We have a match, we DO care about position, but position is
 	// 0, so we don't need to calculate, and can return StepPoints directly
 	if bc.matchPos == 0 {
-		return bc.StepPoints
+		//return bc.StepPoints
+		return BonusReturn{bc.StepPoints, bc.SubString, bc.Greeting}
 	}
 
 	// We have a match, we DO care about position, and position is above 0,
@@ -70,24 +107,37 @@ func (bc BonusConfig) calc(ts string) int {
 
 	// Position is not "purely prefixed" e.g. just zeros before the match
 	if !bc.hasHomogenicPrefix(ts) {
-		return bc.StepPoints
+		//return bc.StepPoints
+		return BonusReturn{bc.StepPoints, bc.SubString, bc.Greeting}
 	}
 
 	// At this point, we know we have a match at position > 0, prefixed by only PrefixChar,
 	// so we calculate bonus and return
-	return (bc.matchPos + 1) * bc.StepPoints
+	return BonusReturn{(bc.matchPos + 1) * bc.StepPoints, bc.SubString, bc.Greeting}
 }
 
 func (bcs *BonusConfigs) add(bc BonusConfig) {
 	*bcs = append(*bcs, bc)
 }
 
-func (bcs BonusConfigs) calc(ts string) int {
-	total := 0
+//func (bcs BonusConfigs) calc(ts string) int {
+//	total := 0
+//	for _, bc := range bcs {
+//		total += bc.calc(ts)
+//	}
+//	return total
+//}
+
+func (bcs BonusConfigs) calc(ts string) BonusReturns {
+	brs := make(BonusReturns, 0)
 	for _, bc := range bcs {
-		total += bc.calc(ts)
+		//brs = append(brs, bc.calc(ts))
+		br := bc.calc(ts)
+		if br.Points > 0 {
+			brs = append(brs, br)
+		}
 	}
-	return total
+	return brs
 }
 
 func (bcs BonusConfigs) hasValue(val int) (bool, *BonusConfig) {

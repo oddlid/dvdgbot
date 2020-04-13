@@ -43,7 +43,6 @@ func (brs BonusReturns) TotalBonus() int {
 }
 
 func (brs BonusReturns) String() string {
-	//return fmt.Sprintf("+%d bonus! : %s", brs.TotalBonus(), strings.Join(brs, ", "))
 	var sb strings.Builder
 	sb.WriteString(fmt.Sprintf("+%d points bonus! : ", brs.TotalBonus()))
 	for i, br := range brs {

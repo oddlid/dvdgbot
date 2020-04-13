@@ -88,32 +88,49 @@ func TestInspection(t *testing.T) {
 		c.addNickForRound(k) // adds to c.tmpNicks
 	}
 
-	//weekday := int(time.Now().Weekday())
 	rand.Seed(time.Now().UnixNano())
 
 	for i := 0; i < 100; i++ {
-		//rndday := rand.Intn(7)
-		//if rndday != weekday {
-		//	t.Logf("Random value (%d) did not match weekday %d. Loop: %d", rndday, weekday, i)
-		//	continue
-		//}
-
 		nickIdx, tax := c.randomInspect()
 		if nickIdx < 0 {
-			//t.Error("Got negative index")
 			continue
 		}
-		//t.Logf("Nick index: %d, tax: %d", nickIdx, tax)
 		nick := c.tmpNicks[nickIdx]
 		c.get(nick).log().WithFields(log.Fields{
 			"iteration": i,
-			"tax": tax,
+			"tax":       tax,
 		}).Info("Selected for inspection")
-		//if tax > 0 {
-		//	t.Logf("[%02d] %s was selected for inspection and lost %d points", i, nick, tax)
-		//} else {
-		//	t.Logf("[%02d] %s was selected for inspection, but got away with a warning", i, nick)
-		//}
+	}
+}
+
+func TestInspectLoner(t *testing.T) {
+	log.SetLevel(log.DebugLevel)
+	sd := getData()
+	c := sd.get(TST_CHAN)
+	c.InspectionTax = 100.0 // % of total points for the user with the least points in the current round
+	rand.Seed(time.Now().UnixNano())
+	nick := "Oddlid"
+	c.addNickForRound(nick)
+
+	c.InspectAlways = true
+	if !c.shouldInspect() {
+		t.Errorf("Set to always inspect, but shouldInspect() returned false anyhow")
+	}
+
+	c.InspectAlways = false
+	c.TaxLoners = false
+	for i := 0; i < 10; i++ {
+		if c.shouldInspect() {
+			t.Errorf("Set to not inspect loners, but did so anyway")
+		}
+	}
+
+	c.TaxLoners = true
+	llog := c.get(nick).log()
+	for i := 0; i < 10; i++ {
+		llog.WithFields(log.Fields{
+			"shouldInspect": c.shouldInspect(),
+		}).Info("Inspect?")
 	}
 }
 

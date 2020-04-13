@@ -13,6 +13,7 @@ type Channel struct {
 	Users         map[string]*User `json:"users"`
 	InspectionTax float64          `json:"inspection_tax"` // percentage, but no check if outside of 0-100
 	InspectAlways bool             `json:"inspect_always"` // if false, only inspect if random value between 0 and 6 matches current weekday
+	TaxLoners     bool             `json:"tax_loners"`     // If to inspect and tax when only one contestant in a round
 	tmpNicks      []string         // used for storing who participated in a specific round. Reset after calculation.
 	l             *logrus.Entry
 }
@@ -130,32 +131,47 @@ func (c *Channel) getMaxRoundTax() float64 {
 }
 
 func (c *Channel) shouldInspect() bool {
+	llog := c.log().WithFields(logrus.Fields{
+		"func": "shouldInspect",
+	})
+	// Having this check before the next will override TaxLoners
 	if c.InspectAlways {
+		llog.Debug("Configured to always run inspection")
 		return true
 	}
+	// We could have something like this to only tax when more than 1 contestant
+	if nil == c.tmpNicks || (!c.TaxLoners && len(c.tmpNicks) < 2) {
+		llog.Debug("Configured to NOT tax loners")
+		return false
+	}
+
 	wd := int(time.Now().Weekday())
 	rnd := rand.Intn(7)
-	if wd != rnd {
-		c.log().WithFields(logrus.Fields{
-			"func":    "shouldInspect",
-			"weekday": wd,
-			"rnd":     rnd,
-		}).Debug("Skipping inspection")
-	}
-	return wd == rnd
+	doInspect := wd == rnd
+	llog.WithFields(logrus.Fields{
+		"weekday": wd,
+		"rnd":     rnd,
+		"inspect": doInspect,
+	}).Debug("To inspect or not...")
+
+	return doInspect
 }
 
 // Return index in c.tmpNicks and how many points minus, if selected, otherwise -1 (or -2) and 0
-func (c *Channel) randomInspect() (int, int) {
+func (c *Channel) randomInspect() (nickIndex, tax int) {
 	llog := c.log().WithField("func", "randomInspect")
 	if !c.shouldInspect() {
-		return -2, 0
+		nickIndex = -2
+		return
 	}
 	maxTax := c.getMaxRoundTax()
 	if maxTax < 1 {
 		llog.WithField("maxTax", maxTax).Debug("Tax below 1, returning")
-		return -1, 0
+		nickIndex = -1
+		return
 	}
-	//llog.Debug("Got positive tax")
-	return rand.Intn(len(c.tmpNicks)), rand.Intn(int(maxTax) + 1)
+
+	nickIndex = rand.Intn(len(c.tmpNicks))
+	tax = rand.Intn(int(maxTax) + 1)
+	return
 }

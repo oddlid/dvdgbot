@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	stdLog "log"
+	//stdLog "log"
 	"os"
 	"time"
 
@@ -13,7 +13,6 @@ import (
 	_ "github.com/oddlid/dvdgbot/xkcdbot"
 	log "github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
-
 	//"github.com/oddlid/dvdgbot/userwatch"
 	//_ "github.com/go-chat-bot/plugins/chucknorris"
 	//_ "github.com/oddlid/dvdgbot/goodmorning"
@@ -123,6 +122,12 @@ func main() {
 	}
 	app.Before = func(c *cli.Context) error {
 		//log.SetOutput(os.Stderr) // this is the default anyways, from Logrus package
+
+		log.SetFormatter(&log.TextFormatter{
+			DisableTimestamp: false,
+			FullTimestamp:    true,
+		})
+
 		if !c.IsSet("log-level") && !c.IsSet("l") && c.Bool("debug") {
 			log.SetLevel(log.DebugLevel)
 		} else {
@@ -132,13 +137,10 @@ func main() {
 			}
 			log.SetLevel(level)
 		}
-		log.SetFormatter(&log.TextFormatter{
-			DisableTimestamp: false,
-			FullTimestamp:    true,
-		})
 
+		// This didn't give me the results I was after, so leaving it commented for reference
 		// Overwrite STD logger used in foreign packages
-		stdLog.SetOutput(log.StandardLogger().WriterLevel(log.GetLevel()))
+		//stdLog.SetOutput(log.StandardLogger().WriterLevel(log.GetLevel()))
 		// Or:
 		//stdLog.SetOutput(log.StandardLogger().Writer())
 

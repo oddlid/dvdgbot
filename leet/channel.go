@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 )
 
 type Channel struct {
@@ -14,6 +14,14 @@ type Channel struct {
 	InspectionTax float64          `json:"inspection_tax"` // percentage, but no check if outside of 0-100
 	InspectAlways bool             `json:"inspect_always"` // if false, only inspect if random value between 0 and 6 matches current weekday
 	tmpNicks      []string         // used for storing who participated in a specific round. Reset after calculation.
+	l             *logrus.Entry
+}
+
+func (c *Channel) log() *logrus.Entry {
+	if nil == c.l {
+		return _log // pkg global
+	}
+	return c.l
 }
 
 func (c *Channel) get(nick string) *User {
@@ -21,7 +29,9 @@ func (c *Channel) get(nick string) *User {
 	user, found := c.Users[nick]
 	c.RUnlock()
 	if !found {
-		user = &User{}
+		user = &User{
+			l: c.log().WithField("user", nick),
+		}
 		c.Lock()
 		c.Users[nick] = user
 		c.Unlock()
@@ -84,7 +94,7 @@ func (c *Channel) mergeScoresForRound(newScores map[string]int) {
 // Find the lowest total points for the users who participated in the current round
 func (c *Channel) getLowestTotalInRound() int {
 	if nil == c.tmpNicks || len(c.tmpNicks) == 0 {
-		_log.WithFields(log.Fields{
+		c.log().WithFields(logrus.Fields{
 			"func": "getLowestTotalInRound",
 		}).Debug("tmpNicks is empty, bailing out")
 		return 0
@@ -100,7 +110,7 @@ func (c *Channel) getLowestTotalInRound() int {
 }
 
 func (c *Channel) getMaxRoundTax() float64 {
-	llog := _log.WithField("func", "getMaxRoundTax")
+	llog := c.log().WithField("func", "getMaxRoundTax")
 
 	if c.InspectionTax <= 0.0 { // use as a way to disable this functionality
 		llog.WithField("InspectionTax", c.InspectionTax).Debug("Negative or zero InspectionTax, bailing out")
@@ -126,7 +136,7 @@ func (c *Channel) shouldInspect() bool {
 	wd := int(time.Now().Weekday())
 	rnd := rand.Intn(7)
 	if wd != rnd {
-		_log.WithFields(log.Fields{
+		c.log().WithFields(logrus.Fields{
 			"func":    "shouldInspect",
 			"weekday": wd,
 			"rnd":     rnd,
@@ -137,7 +147,7 @@ func (c *Channel) shouldInspect() bool {
 
 // Return index in c.tmpNicks and how many points minus, if selected, otherwise -1 (or -2) and 0
 func (c *Channel) randomInspect() (int, int) {
-	llog := _log.WithField("func", "randomInspect")
+	llog := c.log().WithField("func", "randomInspect")
 	if !c.shouldInspect() {
 		return -2, 0
 	}

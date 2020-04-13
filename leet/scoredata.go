@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/go-chat-bot/bot"
-	log "github.com/sirupsen/logrus"
+	//"github.com/go-chat-bot/bot"
+	"github.com/sirupsen/logrus"
 )
 
 type ScoreData struct {
@@ -19,6 +19,7 @@ type ScoreData struct {
 	Channels       map[string]*Channel `json:"channels"`
 	saveInProgress bool
 	calcInProgress bool
+	l              *logrus.Entry
 }
 
 func newScoreData() *ScoreData {
@@ -26,6 +27,13 @@ func newScoreData() *ScoreData {
 		BotStart: time.Now(),
 		Channels: make(map[string]*Channel),
 	}
+}
+
+func (s *ScoreData) log() *logrus.Entry {
+	if nil == s.l {
+		return _log // pkg global
+	}
+	return s.l
 }
 
 func (s *ScoreData) load(r io.Reader) error {
@@ -46,7 +54,7 @@ func (s *ScoreData) loadFile(filename string) (*ScoreData, error) {
 	if err != nil {
 		return s, err
 	}
-	_log.WithField("filename", filename).Info("Leet stats (re)loaded from file")
+	s.log().WithField("filename", filename).Info("Leet stats (re)loaded from file")
 	return s, nil
 }
 
@@ -70,7 +78,7 @@ func (s *ScoreData) saveFile(filename string) error {
 	if err != nil {
 		return err
 	}
-	_log.WithFields(log.Fields{
+	s.log().WithFields(logrus.Fields{
 		"bytes":    n,
 		"filename": filename,
 	}).Info("File saved")
@@ -85,7 +93,7 @@ func (s *ScoreData) scheduleSave(filename string, delayMinutes time.Duration) bo
 	time.AfterFunc(delayMinutes*time.Minute, func() {
 		err := s.saveFile(filename)
 		if err != nil {
-			_log.WithError(err).Error("Scheduled save failed")
+			s.log().WithError(err).Error("Scheduled save failed")
 		}
 		s.saveInProgress = false
 	})
@@ -114,14 +122,15 @@ func (s *ScoreData) calcAndPost(channel string) {
 		msg += getmsg(nick, c.get(nick).getScore(), scoreMap[nick])
 	}
 
-	_bot.SendMessage(
-		bot.OutgoingMessage{
-			channel,
-			strings.TrimRight(msg, "\n"), // some servers post an empty line if present, so get rid of that
-			&bot.User{},
-			nil,
-		},
-	)
+	//_bot.SendMessage(
+	//	bot.OutgoingMessage{
+	//		channel,
+	//		strings.TrimRight(msg, "\n"), // some servers post an empty line if present, so get rid of that
+	//		&bot.User{},
+	//		nil,
+	//	},
+	//)
+	msgChan(channel, strings.TrimRight(msg, "\n"))
 
 	// This is probably the best point to trigger an inspection and post the results
 	// At any round, one contestant will be selected. But only a contestant, not someone who didn't participate this day
@@ -143,14 +152,15 @@ func (s *ScoreData) calcAndPost(channel string) {
 		} else {
 			msg = fmt.Sprintf("%s was randomly selected for taxation, but got off with a slap on the wrist ;)", nick)
 		}
-		_bot.SendMessage(
-			bot.OutgoingMessage{
-				channel,
-				msg,
-				&bot.User{},
-				nil,
-			},
-		)
+		//_bot.SendMessage(
+		//	bot.OutgoingMessage{
+		//		channel,
+		//		msg,
+		//		&bot.User{},
+		//		nil,
+		//	},
+		//)
+		msgChan(channel, msg)
 	}
 
 	c.clearNicksForRound() // clean up, before next round
@@ -173,6 +183,7 @@ func (s *ScoreData) get(channel string) *Channel {
 	if !found {
 		c = &Channel{
 			Users: make(map[string]*User),
+			l:     s.log().WithField("channel", channel),
 		}
 		s.Channels[channel] = c
 	}

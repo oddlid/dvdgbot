@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/go-chat-bot/bot"
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 )
 
 // Constants used for module settings, unless corresponding env vars are given
@@ -40,7 +40,7 @@ var (
 	_scoreData       *ScoreData
 	_bot             *bot.Bot
 	_bonusConfigs    BonusConfigs
-	_log             = log.WithField("plugin", PLUGIN)
+	_log             = logrus.WithField("plugin", PLUGIN) // *logrus.Entry
 )
 
 // SetParentBot sets the internal global reference to an instance of "github.com/go-chat-bot/bot".
@@ -48,6 +48,23 @@ var (
 // The bot including this module must call this before using this module.
 func SetParentBot(b *bot.Bot) {
 	_bot = b
+}
+
+func msgChan(channel, msg string) error {
+	if nil == _bot {
+		msg := "ParentBot is nil"
+		_log.Error(msg)
+		return fmt.Errorf(msg)
+	}
+	_bot.SendMessage(
+		bot.OutgoingMessage{
+			channel,
+			msg,
+			&bot.User{},
+			nil,
+		},
+	)
+	return nil
 }
 
 func getPadStrFmt(alignAt int, format string) string {
@@ -121,7 +138,7 @@ func checkArgs(cmd *bot.Cmd) (proceed bool, msg string) {
 		// TODO: Handle load errors and give feedback for BC as well
 		err := _bonusConfigs.loadFile(_bonusConfigFile)
 		if err != nil {
-			_log.WithError(err).Error("Error lading Bonus Configs from file")
+			_log.WithError(err).Error("Error loading Bonus Configs from file")
 		}
 		if !_scoreData.saveInProgress {
 			_scoreData.loadFile(_scoreFile)

@@ -3,12 +3,22 @@ package leet
 import (
 	"sync"
 	"time"
+
+	"github.com/sirupsen/logrus"
 )
 
 type User struct {
 	sync.RWMutex
 	Points int `json:"score"`
 	didTry bool
+	l      *logrus.Entry
+}
+
+func (u *User) log() *logrus.Entry {
+	if nil == u.l {
+		return _log // pkg global
+	}
+	return u.l
 }
 
 func (u *User) try(val bool) {

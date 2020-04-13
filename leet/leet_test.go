@@ -105,11 +105,15 @@ func TestInspection(t *testing.T) {
 		}
 		//t.Logf("Nick index: %d, tax: %d", nickIdx, tax)
 		nick := c.tmpNicks[nickIdx]
-		if tax > 0 {
-			t.Logf("[%02d] %s was selected for inspection and lost %d points", i, nick, tax)
-		} else {
-			t.Logf("[%02d] %s was selected for inspection, but got away with a warning", i, nick)
-		}
+		c.get(nick).log().WithFields(log.Fields{
+			"iteration": i,
+			"tax": tax,
+		}).Info("Selected for inspection")
+		//if tax > 0 {
+		//	t.Logf("[%02d] %s was selected for inspection and lost %d points", i, nick, tax)
+		//} else {
+		//	t.Logf("[%02d] %s was selected for inspection, but got away with a warning", i, nick)
+		//}
 	}
 }
 

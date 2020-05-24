@@ -215,6 +215,7 @@ func (c *Channel) randomInspect() (nickIndex, tax int) {
 	maxTax := c.getMaxRoundTax()
 	if maxTax < 1 {
 		llog.WithField("maxTax", maxTax).Debug("Tax below 1, returning")
+		c.postTaxFail(fmt.Sprintf("No tax today. Calculated tax was: %f", maxTax))
 		nickIndex = -1
 		return
 	}

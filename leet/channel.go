@@ -1,6 +1,7 @@
 package leet
 
 import (
+	"fmt"
 	"math/rand"
 	"sync"
 	"time"
@@ -14,6 +15,7 @@ type Channel struct {
 	InspectionTax float64          `json:"inspection_tax"` // percentage, but no check if outside of 0-100
 	InspectAlways bool             `json:"inspect_always"` // if false, only inspect if random value between 0 and 6 matches current weekday
 	TaxLoners     bool             `json:"tax_loners"`     // If to inspect and tax when only one contestant in a round
+	PostTaxFail   bool             `json:"post_tax_fail"`  // If to post to channel why taxation does NOT happen
 	tmpNicks      []string         // used for storing who participated in a specific round. Reset after calculation.
 	l             *logrus.Entry
 }
@@ -38,6 +40,46 @@ func (c *Channel) get(nick string) *User {
 		c.Unlock()
 	}
 	return user
+}
+
+// Could have saved the name of the channel in the struct, but since we already have it
+// in the logrus.Entry, we can pull it from that without adding to the struct
+func (c *Channel) name() (string, error) {
+	// can't rely on the log() method here, as that will return an Entry without the channel name
+	// if the channels Entry is not set
+	if nil == c.l {
+		return "", fmt.Errorf("log is nil, can't derive channel name")
+	}
+	entry, found := c.l.Data["channel"] // type Fields map[string]interface{}
+	if !found {
+		return "", fmt.Errorf("no logrus field with key \"channel\"")
+	}
+	return fmt.Sprintf("%v", entry), nil
+}
+
+func (c *Channel) post(msg string) error {
+	if "" == msg {
+		return fmt.Errorf("Refusing to post empty message")
+	}
+	cname, err := c.name()
+	if nil != err {
+		return err
+	}
+	return msgChan(cname, msg) // delegate to parent
+}
+
+func (c *Channel) postTaxFail(msg string) error {
+	llog := c.log().WithField("func", "postTaxFail")
+	if !c.PostTaxFail {
+		str := "Configured to NOT post tax fail"
+		llog.Debug(str)
+		return fmt.Errorf(str)
+	}
+	err := c.post(msg)
+	if nil != err {
+		llog.Error(err)
+	}
+	return err
 }
 
 func (c *Channel) maxPoints() (nick string, res int) {
@@ -120,11 +162,13 @@ func (c *Channel) getMaxRoundTax() float64 {
 	lowestTotal := c.getLowestTotalInRound()
 	if lowestTotal < 1 {
 		llog.WithField("lowestTotal", lowestTotal).Debug("Lowest total is below 1, bailing out")
+		c.postTaxFail("No tax today, as we have a participant with less than 1 points")
 		return 0
 	}
 	maxTax := (float64(lowestTotal) / 100.0) * c.InspectionTax
 	if maxTax < 0.0 {
 		llog.WithField("maxTax", maxTax).Debug("Calculated tax points is negative, bailing out")
+		c.postTaxFail(fmt.Sprintf("No tax today: Lowest total = %d, Percent = %d - which amounts to %f", lowestTotal, c.InspectionTax, maxTax))
 		return 0
 	}
 	return maxTax
@@ -153,6 +197,10 @@ func (c *Channel) shouldInspect() bool {
 		"rnd":     rnd,
 		"inspect": doInspect,
 	}).Debug("To inspect or not...")
+
+	if !doInspect {
+		c.postTaxFail(fmt.Sprintf("No tax today :) Weekday = %d, random = %d", wd, rnd))
+	}
 
 	return doInspect
 }

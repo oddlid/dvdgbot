@@ -152,14 +152,6 @@ func (s *ScoreData) calcAndPost(channel string) {
 		} else {
 			msg = fmt.Sprintf("%s was randomly selected for taxation, but got off with a slap on the wrist ;)", nick)
 		}
-		//_bot.SendMessage(
-		//	bot.OutgoingMessage{
-		//		channel,
-		//		msg,
-		//		&bot.User{},
-		//		nil,
-		//	},
-		//)
 		msgChan(channel, msg)
 	}
 

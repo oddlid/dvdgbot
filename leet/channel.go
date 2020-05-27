@@ -58,13 +58,22 @@ func (c *Channel) name() (string, error) {
 }
 
 func (c *Channel) post(msg string) error {
+	llog := c.log().WithField("func", "post")
 	if "" == msg {
-		return fmt.Errorf("Refusing to post empty message")
+		str := "Refusing to post empty message"
+		llog.Error(str)
+		return fmt.Errorf(str)
 	}
 	cname, err := c.name()
 	if nil != err {
+		llog.Error(err)
 		return err
 	}
+	llog.WithFields(logrus.Fields{
+		"message": msg,
+		"channel": cname,
+	}).Debug("Delegating channel post to parent bot")
+
 	return msgChan(cname, msg) // delegate to parent
 }
 
@@ -162,13 +171,19 @@ func (c *Channel) getMaxRoundTax() float64 {
 	lowestTotal := c.getLowestTotalInRound()
 	if lowestTotal < 1 {
 		llog.WithField("lowestTotal", lowestTotal).Debug("Lowest total is below 1, bailing out")
-		c.postTaxFail("No tax today, as we have a participant with less than 1 points")
+		err := c.postTaxFail("No tax today, as we have a participant with less than 1 points")
+		if nil != err {
+			llog.Error(err)
+		}
 		return 0
 	}
 	maxTax := (float64(lowestTotal) / 100.0) * c.InspectionTax
 	if maxTax < 0.0 {
 		llog.WithField("maxTax", maxTax).Debug("Calculated tax points is negative, bailing out")
-		c.postTaxFail(fmt.Sprintf("No tax today: Lowest total = %d, Percent = %d - which amounts to %f", lowestTotal, c.InspectionTax, maxTax))
+		err := c.postTaxFail(fmt.Sprintf("No tax today: Lowest total = %d, Percent = %f - which amounts to %f", lowestTotal, c.InspectionTax, maxTax))
+		if nil != err {
+			llog.Error(err)
+		}
 		return 0
 	}
 	return maxTax
@@ -199,7 +214,10 @@ func (c *Channel) shouldInspect() bool {
 	}).Debug("To inspect or not...")
 
 	if !doInspect {
-		c.postTaxFail(fmt.Sprintf("No tax today :) Weekday = %d, random = %d", wd, rnd))
+		err := c.postTaxFail(fmt.Sprintf("No tax today :) Weekday = %d, random = %d", wd, rnd))
+		if nil != err {
+			llog.Error(err)
+		}
 	}
 
 	return doInspect

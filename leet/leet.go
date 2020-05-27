@@ -52,9 +52,13 @@ func SetParentBot(b *bot.Bot) {
 
 func msgChan(channel, msg string) error {
 	if nil == _bot {
-		msg := "ParentBot is nil"
-		_log.Error(msg)
-		return fmt.Errorf(msg)
+		str := "ParentBot is nil"
+		_log.WithFields(logrus.Fields{
+			"func":    "msgChan",
+			"channel": channel,
+			"message": msg,
+		}).Error(str)
+		return fmt.Errorf(str)
 	}
 	_bot.SendMessage(
 		bot.OutgoingMessage{

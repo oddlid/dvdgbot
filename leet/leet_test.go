@@ -2,11 +2,11 @@ package leet
 
 import (
 	"fmt"
+	"math/rand"
 	"os"
 	"strings"
 	"testing"
 	"time"
-	"math/rand"
 
 	"github.com/go-chat-bot/bot"
 	log "github.com/sirupsen/logrus"
@@ -134,6 +134,27 @@ func TestInspectLoner(t *testing.T) {
 	}
 }
 
+func TestTaxFail(t *testing.T) {
+	log.SetLevel(log.DebugLevel)
+	rand.Seed(time.Now().UnixNano())
+	sd := getData()
+	c := sd.get(TST_CHAN)
+	c.InspectionTax = 50.14 // % of total points for the user with the least points in the current round
+	c.PostTaxFail = true
+	for k, _ := range c.Users {
+		c.addNickForRound(k) // adds to c.tmpNicks
+	}
+
+	cname, err := c.name()
+	if nil != err {
+		t.Error(err)
+	}
+	if cname != TST_CHAN {
+		t.Errorf("Expected channel name %q, got %q", TST_CHAN, cname)
+	}
+	c.randomInspect()
+}
+
 func TestBonusConfigCalc(t *testing.T) {
 	var bcs BonusConfigs
 	stamps := []string{
@@ -219,7 +240,6 @@ func TestBonusConfigCalc(t *testing.T) {
 	}
 
 }
-
 
 // This BM shows that almost all execution time in bonus() goes to
 // 2 lines of string formatting...
@@ -332,7 +352,7 @@ func BenchmarkTryScore(b *testing.B) {
 	channel := "#channel"
 	nicks := []struct {
 		nick string
-		ts time.Time
+		ts   time.Time
 	}{
 		{"Odd_01", tm("2019-04-07T13:37:00.000001337Z")},
 		{"Odd_02", tm("2019-04-07T13:37:00.000013370Z")},
@@ -420,7 +440,7 @@ func BenchmarkLeet(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		cmd.User.Nick = fmt.Sprintf("Nick_%d", i)
 		msg, err := leet(cmd)
-		if (err != nil) {
+		if err != nil {
 			b.Log(err)
 			b.FailNow()
 		}
@@ -458,11 +478,11 @@ func BenchmarkHitBonus(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		cmd.User.Nick = fmt.Sprintf("Nick_%d", i)
 		msg, err := leet(cmd)
-		if (err != nil) {
+		if err != nil {
 			b.Log(err)
 			b.FailNow()
 		}
-		if (strings.Index(msg, "bonus") > -1) {
+		if strings.Index(msg, "bonus") > -1 {
 			b.Log(msg)
 		}
 	}
@@ -498,11 +518,11 @@ func BenchmarkHit1337(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		cmd.User.Nick = fmt.Sprintf("Nick_%d", i)
 		msg, err := leet(cmd)
-		if (err != nil) {
+		if err != nil {
 			b.Log(err)
 			b.FailNow()
 		}
-		if (strings.Index(msg, "[1337") > -1) {
+		if strings.Index(msg, "[1337") > -1 {
 			b.Log(msg)
 		}
 	}

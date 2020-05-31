@@ -22,7 +22,7 @@ type Channel struct {
 
 func (c *Channel) log() *logrus.Entry {
 	if nil == c.l {
-		return _log // pkg global
+		c.l = _log // pkg global
 	}
 	return c.l
 }

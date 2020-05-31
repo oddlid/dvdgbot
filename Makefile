@@ -1,5 +1,5 @@
 BINARY := bajsbot.bin
-VERSION := 2020-05-27
+VERSION := 2020-05-31
 SOURCES := $(wildcard *.go)
 DEPS := $(wildcard leet/*.go larsmonsen/*.go xkcdbot/*.go goodmorning/*.go quote/*.go userwatch/*.go timestamp/*.go quoteshuffle/*.go)
 COMMIT_ID := $(shell git describe --tags --always)

@@ -26,12 +26,13 @@ func newScoreData() *ScoreData {
 	return &ScoreData{
 		BotStart: time.Now(),
 		Channels: make(map[string]*Channel),
+		l:        _log,
 	}
 }
 
 func (s *ScoreData) log() *logrus.Entry {
 	if nil == s.l {
-		return _log // pkg global
+		s.l = _log // pkg global
 	}
 	return s.l
 }
@@ -178,6 +179,7 @@ func (s *ScoreData) get(channel string) *Channel {
 			l:     s.log().WithField("channel", channel),
 		}
 		s.Channels[channel] = c
+		c.l.Debug("Channel object created")
 	}
 	return c
 }

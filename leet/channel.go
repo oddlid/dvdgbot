@@ -11,6 +11,7 @@ import (
 
 type Channel struct {
 	sync.RWMutex
+	Name          string           `json:"channel_name,omitempty"` // we need to duplicate this from the parent map key, so that the instance knows its own name
 	Users         map[string]*User `json:"users"`
 	InspectionTax float64          `json:"inspection_tax"` // percentage, but no check if outside of 0-100
 	InspectAlways bool             `json:"inspect_always"` // if false, only inspect if random value between 0 and 6 matches current weekday
@@ -22,7 +23,8 @@ type Channel struct {
 
 func (c *Channel) log() *logrus.Entry {
 	if nil == c.l {
-		c.l = _log // pkg global
+		// Instead of setting c.l here, we just return _log, so that we may set c.l later in name() instead, with more fields
+		return _log
 	}
 	return c.l
 }
@@ -44,30 +46,48 @@ func (c *Channel) get(nick string) *User {
 
 // Could have saved the name of the channel in the struct, but since we already have it
 // in the logrus.Entry, we can pull it from that without adding to the struct
+//func (c *Channel) name() (string, error) {
+//	// can't rely on the log() method here, as that will return an Entry without the channel name
+//	// if the channels Entry is not set
+//	if nil == c.l {
+//		return "", fmt.Errorf("log is nil, can't derive channel name")
+//	}
+//	entry, found := c.l.Data["channel"] // type Fields map[string]interface{}
+//	if !found {
+//		// TODO: 2020-06-02 20:48 - This is where it fails now
+//		// 2020-06-03 23:02: I now suspect this problem comes from the loading of the channel object
+//		// via JSON. When I run tests, where we create the ScoreData structure with all it's children in code,
+//		// the branch where the log field with the channel name is set, is reached. This does not however happen
+//		// when the structure is loaded from JSON.
+//		// Solution? Maybe just save the channel name in the channel object itself...
+//		return "", fmt.Errorf("no logrus field with key \"channel\"")
+//	}
+//	cname := fmt.Sprintf("%v", entry)
+//
+//	c.log().WithFields(logrus.Fields{
+//		"func": "name",
+//		"name": cname,
+//	}).Debug("Resolved channel name")
+//
+//	return cname, nil
+//}
+
 func (c *Channel) name() (string, error) {
-	// can't rely on the log() method here, as that will return an Entry without the channel name
-	// if the channels Entry is not set
-	if nil == c.l {
-		return "", fmt.Errorf("log is nil, can't derive channel name")
+	key := "channel"
+	if c.Name != "" {
+		if nil == c.l {
+			c.l = _log.WithField(key, c.Name)
+		}
+		return c.Name, nil
 	}
-	entry, found := c.l.Data["channel"] // type Fields map[string]interface{}
-	if !found {
-		// TODO: 2020-06-02 20:48 - This is where it fails now
-		// 2020-06-03 23:02: I now suspect this problem comes from the loading of the channel object
-		// via JSON. When I run tests, where we create the ScoreData structure with all it's children in code,
-		// the branch where the log field with the channel name is set, is reached. This does not however happen
-		// when the structure is loaded from JSON.
-		// Solution? Maybe just save the channel name in the channel object itself...
-		return "", fmt.Errorf("no logrus field with key \"channel\"")
+	if nil != c.l {
+		entry, found := c.l.Data[key] // type Fields map[string]interface{}
+		if !found {
+			return "", fmt.Errorf("No logrus field with key: %q", key)
+		}
+		return fmt.Sprintf("%v", entry), nil
 	}
-	cname := fmt.Sprintf("%v", entry)
-
-	c.log().WithFields(logrus.Fields{
-		"func": "name",
-		"name": cname,
-	}).Debug("Resolved channel name")
-
-	return cname, nil
+	return "", fmt.Errorf("Unable to resolve channel name")
 }
 
 func (c *Channel) post(msg string) error {

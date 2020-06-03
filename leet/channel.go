@@ -52,9 +52,22 @@ func (c *Channel) name() (string, error) {
 	}
 	entry, found := c.l.Data["channel"] // type Fields map[string]interface{}
 	if !found {
+		// TODO: 2020-06-02 20:48 - This is where it fails now
+		// 2020-06-03 23:02: I now suspect this problem comes from the loading of the channel object
+		// via JSON. When I run tests, where we create the ScoreData structure with all it's children in code,
+		// the branch where the log field with the channel name is set, is reached. This does not however happen
+		// when the structure is loaded from JSON.
+		// Solution? Maybe just save the channel name in the channel object itself...
 		return "", fmt.Errorf("no logrus field with key \"channel\"")
 	}
-	return fmt.Sprintf("%v", entry), nil
+	cname := fmt.Sprintf("%v", entry)
+
+	c.log().WithFields(logrus.Fields{
+		"func": "name",
+		"name": cname,
+	}).Debug("Resolved channel name")
+
+	return cname, nil
 }
 
 func (c *Channel) post(msg string) error {
@@ -71,7 +84,7 @@ func (c *Channel) post(msg string) error {
 	}
 	llog.WithFields(logrus.Fields{
 		"message": msg,
-		"channel": cname,
+		"cname":   cname, // we use "cname" as key here in order to see that we don't override inherited value for "channel"
 	}).Debug("Delegating channel post to parent bot")
 
 	return msgChan(cname, msg) // delegate to parent

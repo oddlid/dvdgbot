@@ -179,7 +179,7 @@ func (s *ScoreData) get(channel string) *Channel {
 			l:     s.log().WithField("channel", channel),
 		}
 		s.Channels[channel] = c
-		c.l.Debug("Channel object created")
+		c.l.WithField("func", "get").Debug("Channel object created")
 	}
 	return c
 }

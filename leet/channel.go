@@ -85,7 +85,8 @@ func (c *Channel) name() (string, error) {
 		if !found {
 			return "", fmt.Errorf("No logrus field with key: %q", key)
 		}
-		return fmt.Sprintf("%v", entry), nil
+		c.Name = fmt.Sprintf("%v", entry) // set name for later
+		return c.Name, nil
 	}
 	return "", fmt.Errorf("Unable to resolve channel name")
 }

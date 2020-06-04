@@ -32,7 +32,8 @@ func newScoreData() *ScoreData {
 
 func (s *ScoreData) log() *logrus.Entry {
 	if nil == s.l {
-		s.l = _log // pkg global
+		//s.l = _log // pkg global
+		return _log
 	}
 	return s.l
 }
@@ -175,6 +176,7 @@ func (s *ScoreData) get(channel string) *Channel {
 	c, found := s.Channels[channel]
 	if !found {
 		c = &Channel{
+			Name:  channel,
 			Users: make(map[string]*User),
 			l:     s.log().WithField("channel", channel),
 		}

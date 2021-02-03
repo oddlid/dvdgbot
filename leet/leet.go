@@ -35,6 +35,7 @@ const (
 var (
 	_hour            int
 	_minute          int
+	_targetScore     int
 	_scoreFile       string
 	_bonusConfigFile string
 	_scoreData       *ScoreData
@@ -115,6 +116,8 @@ func withinTimeFrame(t time.Time) (bool, TimeCode) {
 	return false, tf
 }
 
+// getScoreForEntry returns "0, TF_ONTIME" if you should get points,
+// and "-1, TF_(BEFORE|EARLY|LATE|AFTER)" if you miss and should not have points
 func getScoreForEntry(t time.Time) (int, TimeCode) {
 	var points int
 	tf := timeFrame(t)
@@ -174,11 +177,25 @@ func leet(cmd *bot.Cmd) (string, error) {
 		return "", nil
 	}
 
+	// has the user already reached the target point sum and should not contend?
+	//locked, rating := _scoreData.isLocked(cmd.Channel, cmd.User.Nick)
+	//if locked {
+	//	return fmt.Sprintf(
+	//		"%s: You're locked, as you're #%d, reaching %d points @ %s after %s :)",
+	//		cmd.User.Nick,
+	//		rating.Rank + 1,
+	//		getTargetScore(),
+	//		rating.ReachedAt,
+	//		timexString(timexDiff(_scoreData.BotStart, rating.ReachedAt)),
+	//	), nil
+	//}
+
 	// is the user spamming?
 	if _scoreData.didTry(cmd.Channel, cmd.User.Nick) {
 		return fmt.Sprintf("%s: Stop spamming!", cmd.User.Nick), nil
 	}
 
+	// this call also saves the users last entry time, which is important later
 	success, msg := _scoreData.tryScore(cmd.Channel, cmd.User.Nick, t)
 
 	// at this point, data might have changed, and should be saved
@@ -226,6 +243,28 @@ func envDefInt(key string, fallback int) int {
 		return fallback
 	}
 	return intVal
+}
+
+// getTargetScore should be used only _after_ pickupEnv, as it will modify vars _hour/_minute if not set
+func getTargetScore() int {
+	// return cached result if it exists
+	if 0 != _targetScore {
+		return _targetScore
+	}
+	if 0 == _hour {
+		_hour = DEF_HOUR
+	}
+	if 0 == _minute {
+		_minute = DEF_MINUTE
+	}
+	intVal, err := strconv.Atoi(fmt.Sprintf("%d%d", _hour, _minute))
+	if nil != err {
+		_log.WithError(err).Error("Conversion error")
+		return -1
+	}
+	// cache the result for later calls
+	_targetScore = intVal
+	return _targetScore
 }
 
 func pickupEnv() {

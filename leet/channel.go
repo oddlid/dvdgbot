@@ -9,15 +9,24 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+type Placement struct {
+	Rank      int           `json:"rank"`
+	ReachedAt time.Time     `json:"reached_at"`
+}
+
+type Placements map[string]*Placement // the key map is user nick, same as in user map
+
 type Channel struct {
 	sync.RWMutex
-	Name          string           `json:"channel_name,omitempty"` // we need to duplicate this from the parent map key, so that the instance knows its own name
-	Users         map[string]*User `json:"users"`
-	InspectionTax float64          `json:"inspection_tax"` // percentage, but no check if outside of 0-100
-	InspectAlways bool             `json:"inspect_always"` // if false, only inspect if random value between 0 and 6 matches current weekday
-	TaxLoners     bool             `json:"tax_loners"`     // If to inspect and tax when only one contestant in a round
-	PostTaxFail   bool             `json:"post_tax_fail"`  // If to post to channel why taxation does NOT happen
-	tmpNicks      []string         // used for storing who participated in a specific round. Reset after calculation.
+	Name          string     `json:"channel_name,omitempty"` // we need to duplicate this from the parent map key, so that the instance knows its own name
+	Users         UserMap    `json:"users"`                  // string key is nick
+	InspectionTax float64    `json:"inspection_tax"`         // percentage, but no check if outside of 0-100
+	InspectAlways bool       `json:"inspect_always"`         // if false, only inspect if random value between 0 and 6 matches current weekday
+	TaxLoners     bool       `json:"tax_loners"`             // If to inspect and tax when only one contestant in a round
+	PostTaxFail   bool       `json:"post_tax_fail"`          // If to post to channel why taxation does NOT happen
+	OvershootTax  int        `json:"overshoot_tax"`          // interval for how much to deduct if user scores past target
+	Ratings       Placements `json:"ratings"`                // who came first, second and so on to the final target point sum
+	tmpNicks      []string   // used for storing who participated in a specific round. Reset after calculation.
 	l             *logrus.Entry
 }
 
@@ -35,7 +44,8 @@ func (c *Channel) get(nick string) *User {
 	c.RUnlock()
 	if !found {
 		user = &User{
-			l: c.log().WithField("user", nick),
+			Nick: nick,
+			l:    c.log().WithField("user", nick),
 		}
 		c.Lock()
 		c.Users[nick] = user
@@ -89,6 +99,14 @@ func (c *Channel) name() (string, error) {
 		return c.Name, nil
 	}
 	return "", fmt.Errorf("Unable to resolve channel name")
+}
+
+func (c *Channel) nickList() []string {
+	nicks := make([]string, 0, len(c.Users))
+	for k, _ := range c.Users {
+		nicks = append(nicks, k)
+	}
+	return nicks
 }
 
 func (c *Channel) post(msg string) error {
@@ -149,6 +167,33 @@ func (c *Channel) addNickForRound(nick string) int {
 	return len(c.tmpNicks) // returns first place, second place etc
 }
 
+// removeNickFromRound returns true if nick was found and deleted, false otherwise
+func (c *Channel) removeNickFromRound(nick string) bool {
+	if nil == c.tmpNicks || len(c.tmpNicks) == 0 {
+		return false
+	}
+
+	nickIdx := -1
+	for idx, _ := range c.tmpNicks {
+		if nick == c.tmpNicks[idx] {
+			nickIdx = idx
+			break
+		}
+	}
+
+	if -1 == nickIdx {
+		return false
+	}
+
+	// Use slow version that maintains order, from https://yourbasic.org/golang/delete-element-slice/
+	numNicks := len(c.tmpNicks)
+	copy(c.tmpNicks[nickIdx:], c.tmpNicks[nickIdx+1:])
+	c.tmpNicks[numNicks-1] = ""
+	c.tmpNicks = c.tmpNicks[:numNicks-1]
+
+	return true
+}
+
 func (c *Channel) clearNicksForRound() {
 	c.Lock()
 	c.tmpNicks = nil
@@ -195,6 +240,45 @@ func (c *Channel) getLowestTotalInRound() int {
 	return lowestTotal
 }
 
+// getOverShooters will return both those who got exactly to the target point sum,
+// and those that got past it.
+// Since it will be possible to miss so one's not included in tmpNicks, but still get a bonus
+// that takes you past the limit, we need to check all users here.
+func (c *Channel) getOverShooters() UserMap {
+	limit := getTargetScore()
+	ret := make(UserMap)
+	c.RLock()
+	for nick, user := range c.Users {
+		if user.getScore() >= limit {
+			ret[nick] = user
+		}
+	}
+	c.RUnlock()
+	return ret
+}
+
+func (c *Channel) getOverShootTaxFor(points int) int {
+	limit := getTargetScore()
+	if limit == points {
+		return 0
+	}
+	deduction := 0
+	for points - deduction >= limit {
+		deduction += c.OvershootTax
+	}
+	return deduction
+}
+
+func (c *Channel) punishOverShooters(umap UserMap) UserMap {
+	c.Lock()
+	for _, user := range umap {
+		tax := c.getOverShootTaxFor(user.getScore())
+		user.addScore(-tax)
+	}
+	c.Unlock()
+	return umap
+}
+
 func (c *Channel) getMaxRoundTax() float64 {
 	llog := c.log().WithField("func", "getMaxRoundTax")
 
@@ -239,7 +323,7 @@ func (c *Channel) shouldInspect() bool {
 	}
 
 	wd := int(time.Now().Weekday())
-	rnd := rand.Intn(7)
+	rnd := rand.Intn(7) // 7 for number of days in week
 	doInspect := wd == rnd
 	llog.WithFields(logrus.Fields{
 		"weekday": wd,
@@ -275,4 +359,57 @@ func (c *Channel) randomInspect() (nickIndex, tax int) {
 	nickIndex = rand.Intn(len(c.tmpNicks))
 	tax = rand.Intn(int(maxTax) + 1)
 	return
+}
+
+func (c *Channel) isLocked(nick string) bool {
+	c.RLock()
+	defer c.RUnlock()
+	return c.Ratings.isLocked(nick)
+}
+
+func (c *Channel) addWinner(nick string) bool {
+	if c.isLocked(nick) {
+		return false // user has already reached target point sum
+	}
+	// we need to get the time outside of the locking, or we get a deadlock
+	when := c.get(nick).getLastEntry()
+	c.Lock()
+	c.Ratings.add(nick, when)
+	c.Unlock()
+	return true
+}
+
+func (c *Channel) removeWinner(nick string) bool {
+	c.Lock()
+	defer c.Unlock()
+	return c.Ratings.remove(nick)
+}
+
+func (ps Placements) getNextRank() int {
+	rank := 0
+	for _, p := range ps {
+		if p.Rank >= rank {
+			rank = p.Rank + 1
+		}
+	}
+	return rank
+}
+
+// if a nick is in this map, it means it's locked because it has reached the target point sum
+func (ps Placements) isLocked(nick string) bool {
+	_, found := ps[nick]
+	return found
+}
+
+func (ps Placements) add(nick string, when time.Time) {
+	ps[nick] = &Placement{
+		Rank:      ps.getNextRank(),
+		ReachedAt: when,
+	}
+}
+
+func (ps Placements) remove(nick string) bool {
+	found := ps.isLocked(nick)
+	delete(ps, nick)
+	return found
 }

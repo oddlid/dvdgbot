@@ -34,7 +34,7 @@ func (kvl KVList) Swap(i, j int) {
 func (kvl KVList) LongestKey() int {
 	key_maxlen := 0
 	for _, kv := range kvl {
-		klen := len(kv.Key)
+		klen := kv.KeyLen()
 		if klen > key_maxlen {
 			key_maxlen = klen
 		}

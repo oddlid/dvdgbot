@@ -30,6 +30,10 @@ func newScoreData() *ScoreData {
 	}
 }
 
+func (s *ScoreData) isEmpty() bool {
+	return len(s.Channels) == 0
+}
+
 func (s *ScoreData) log() *logrus.Entry {
 	if nil == s.l {
 		//s.l = _log // pkg global
@@ -124,15 +128,22 @@ func (s *ScoreData) calcAndPost(channel string) {
 		msg += getmsg(nick, c.get(nick).getScore(), scoreMap[nick])
 	}
 
-	//_bot.SendMessage(
-	//	bot.OutgoingMessage{
-	//		channel,
-	//		strings.TrimRight(msg, "\n"), // some servers post an empty line if present, so get rid of that
-	//		&bot.User{},
-	//		nil,
-	//	},
-	//)
-	msgChan(channel, strings.TrimRight(msg, "\n"))
+	// Post results to channel
+	msgChan(channel, strings.TrimRight(msg, "\n")) // get rid of final, extra newline
+
+	// Both Tord and Snelhest agrees that check for overshoot and it's punishment should come here,
+	// before regular taxation.
+	// Snelhest wants a user that shoots straight and gets right on the target/limit should be excempt
+	// from taxation afterwards. I don't agree. But, if we are to do it that way, we would need to
+	// delete the nick from c.tmpNicks[] for it not to be included in inspection.
+
+	// First, get UserMap of OverShooters. This will include anyone who has hit spot on as well.
+	// Then, if someone hit spot on, add them as a winner. If more than one, they should be added in the
+	// order they posted, which can be derived from the user's LastEntry timestamp. We might need to copy
+	// these over to a new slice and sort first, or something...
+	// Then, punish overshooters.
+	// Then, if we are to excempt those who hit the target from further taxation, delete them from c.tmpNicks.
+
 
 	// This is probably the best point to trigger an inspection and post the results
 	// At any round, one contestant will be selected. But only a contestant, not someone who didn't participate this day
@@ -157,6 +168,9 @@ func (s *ScoreData) calcAndPost(channel string) {
 		msgChan(channel, msg)
 	}
 
+	// At this point, if we do NOT excempt winners from being taxated and it was a winner who got tax, we need to
+	// delete that user from c.Ratings, as it's not below the target again.
+
 	c.clearNicksForRound() // clean up, before next round
 }
 
@@ -176,14 +190,23 @@ func (s *ScoreData) get(channel string) *Channel {
 	c, found := s.Channels[channel]
 	if !found {
 		c = &Channel{
-			Name:  channel,
-			Users: make(map[string]*User),
-			l:     s.log().WithField("channel", channel),
+			Name:    channel,
+			Users:   make(UserMap),
+			Ratings: make(Placements),
+			l:       s.log().WithField("channel", channel),
 		}
 		s.Channels[channel] = c
 		c.l.WithField("func", "get").Debug("Channel object created")
 	}
 	return c
+}
+
+func (s *ScoreData) addWinner(channel, nick string) bool {
+	return s.get(channel).addWinner(nick)
+}
+
+func (s *ScoreData) removeWinner(channel, nick string) bool {
+	return s.get(channel).removeWinner(nick)
 }
 
 func (s *ScoreData) rank(channel string) (KVList, error) {
@@ -214,6 +237,17 @@ func (s *ScoreData) stats(channel string) string {
 	return str
 }
 
+func (s *ScoreData) isLocked(channel, nick string) (bool, *Placement) {
+	ch := s.get(channel)
+	locked := ch.isLocked(nick)
+
+	if locked {
+		return locked, ch.Ratings[nick]
+	}
+
+	return locked, nil
+}
+
 func (s *ScoreData) didTry(channel, nick string) bool {
 	return s.get(channel).get(nick).hasTried()
 }
@@ -222,22 +256,21 @@ func (s *ScoreData) tryScore(channel, nick string, t time.Time) (bool, string) {
 	c := s.get(channel)
 	points, tf := getScoreForEntry(t) // -1 or 0
 
+	// No points, not even minus if you're outside the timeframe
 	if TF_BEFORE == tf || TF_AFTER == tf {
 		return false, ""
 	}
 
 	ts := fmt.Sprintf("[%02d:%02d:%02d:%09d]", t.Hour(), t.Minute(), t.Second(), t.Nanosecond())
 
-	// This here is what makes it too hard to bother to get a custom greeting for a bonus, since
-	// we add up the bonus points, but can't really add up greetings...
-	//bonusPoints := _bonusConfigs.calc(fmt.Sprintf("%02d%09d", t.Second(), t.Nanosecond()))
 	brs := _bonusConfigs.calc(fmt.Sprintf("%02d%09d", t.Second(), t.Nanosecond()))
 	bonusPoints := brs.TotalBonus()
-	_, userTotal := c.get(nick).score(points + bonusPoints)
+	user := c.get(nick)
+	user.setLastEntry(t) // important to save last entry time for later
+	_, userTotal := user.score(points + bonusPoints)
 
 	missTmpl := fmt.Sprintf("%s Too %s, sucker! %s: %d", ts, "%s", nick, userTotal)
 	if bonusPoints > 0 {
-		//missTmpl += fmt.Sprintf(" (but you got %d bonus points!)", bonusPoints)
 		missTmpl += fmt.Sprintf(" (but: %s)", brs)
 	}
 
@@ -251,7 +284,6 @@ func (s *ScoreData) tryScore(channel, nick string, t time.Time) (bool, string) {
 
 	ret := fmt.Sprintf("%s Whoop! %s: #%d", ts, nick, rank)
 	if bonusPoints > 0 {
-		//ret = fmt.Sprintf("%s (+%d points bonus!!!)", ret, bonusPoints)
 		ret = fmt.Sprintf("%s (%s)", ret, brs)
 	}
 

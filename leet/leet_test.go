@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	TST_CHAN = "#dvdg"
+	TST_CHAN = "#blackhole"
 )
 
 var (
@@ -24,25 +24,31 @@ var (
 )
 
 func getData() *ScoreData {
-	//const c string = "#dvdg"
-	sd := newScoreData()
-	//sd.get(c)
+	// in case this is run via gotest.sh, then we'd have a copy or real data here to use
+	if nil != _scoreData && !_scoreData.isEmpty(){
+		return _scoreData
+	}
 
+	if nil == _scoreData {
+		_scoreData = newScoreData()
+	}
+
+	// Fill with some test data if empty
 	fmt.Println("Creating Oddlid")
-	o := sd.get(TST_CHAN).get("Oddlid")
+	o := _scoreData.get(TST_CHAN).get("Oddlid")
 	fmt.Println("Creating Tord")
-	t := sd.get(TST_CHAN).get("Tord")
+	t := _scoreData.get(TST_CHAN).get("Tord")
 	fmt.Println("Creating Snelhest")
-	s := sd.get(TST_CHAN).get("Snelhest")
+	s := _scoreData.get(TST_CHAN).get("Snelhest")
 	fmt.Println("Creating bAAAArd")
-	b := sd.get(TST_CHAN).get("bAAAArd")
+	b := _scoreData.get(TST_CHAN).get("bAAAArd")
 
 	o.score(10)
 	t.score(8)
 	s.score(6)
 	b.score(4)
 
-	return sd
+	return _scoreData
 }
 
 func TestSave(t *testing.T) {
@@ -153,6 +159,274 @@ func TestTaxFail(t *testing.T) {
 		t.Errorf("Expected channel name %q, got %q", TST_CHAN, cname)
 	}
 	c.randomInspect()
+}
+
+func TestStats(t *testing.T) {
+	log.SetLevel(log.DebugLevel)
+	rand.Seed(time.Now().UnixNano())
+	sd := getData()
+	//c := sd.get(TST_CHAN)
+
+	fmt.Printf("%s", sd.stats(TST_CHAN))
+}
+
+func TestWinner(t *testing.T) {
+	log.SetLevel(log.DebugLevel)
+	rand.Seed(time.Now().UnixNano())
+	sd := getData()
+	c := sd.get(TST_CHAN)
+
+	// actual botstart: 2018-03-07T17:27:15.435563057+02:00
+	//bStart, tErr := time.Parse(time.RFC3339, "2018-03-07T17:27:15+02:00")
+	//if nil == tErr {
+	//	sd.BotStart = bStart
+	//}
+
+
+	nick1 := "Oddlid"
+	//nick2 := "Tord"
+	odd := c.get(nick1)
+	//tord := c.get(nick2)
+	odd.setScore(getTargetScore())
+	odd.setLastEntry(time.Now())
+	//tord.setScore(getTargetScore())
+	sd.addWinner(TST_CHAN, nick1)
+	//sd.addWinner(TST_CHAN, nick2, time.Now())
+
+	locked, rating := sd.isLocked(TST_CHAN, nick1)
+	if locked {
+		fmt.Printf(
+			"%s: You're locked, as you're #%d, reaching %d points @ %s after %s :)\n",
+			nick1,
+			rating.Rank + 1,
+			getTargetScore(),
+			rating.ReachedAt.Format("2006-01-02 15:04:05.999999999"),
+			timexString(timexDiff(sd.BotStart, rating.ReachedAt)),
+		)
+	} else {
+		t.Errorf("User %s expected to be locked", nick1)
+	}
+}
+
+func TestUserSort(t *testing.T) {
+	log.SetLevel(log.DebugLevel)
+	rand.Seed(time.Now().UnixNano())
+	sd := getData()
+	c := sd.get(TST_CHAN)
+
+	nicks := c.nickList()
+	targetScore := getTargetScore()
+	entryTime := time.Now()
+	tFmt := "15:04:05.999999999"
+
+	u0 := c.get(nicks[0])
+	u0.setScore(targetScore - 1)
+	u0.setLastEntry(entryTime)
+
+	u1 := c.get(nicks[1])
+	u1.setScore(targetScore)
+	u1.setLastEntry(entryTime.Add(100 * time.Millisecond))
+
+	u2 := c.get(nicks[2])
+	u2.setScore(targetScore)
+	u2.setLastEntry(entryTime.Add(200 * time.Millisecond))
+
+	u3 := c.get(nicks[3])
+	u3.setScore(targetScore)
+	u3.setLastEntry(entryTime.Add(300 * time.Millisecond))
+
+	u4 := c.get(nicks[4])
+	u4.setScore(targetScore + 1)
+	u4.setLastEntry(entryTime.Add(400 * time.Millisecond))
+
+	osmap := c.getOverShooters() // this should include all above but nicks[0]
+
+	fmt.Printf("\nTarget score: %d\n", targetScore)
+
+	fmt.Printf("\nUndershooter:\n")
+	fmt.Printf(
+		"%-10s: %d @ %s\n",
+		u0.Nick,
+		u0.Points,
+		u0.LastEntry.Format(tFmt),
+	)
+
+	fmt.Printf("\nOvershooters:\n")
+	for _, v := range osmap {
+		fmt.Printf(
+			"%-10s: %d @ %s\n",
+			v.Nick,
+			v.Points,
+			v.LastEntry.Format(tFmt),
+		)
+	}
+
+	ws := osmap.filterByPointsEQ(targetScore)
+	fmt.Printf("\nWinners, unsorted:\n")
+	for _, v := range ws {
+		fmt.Printf(
+			"%-10s: %d @ %s\n",
+			v.Nick,
+			v.Points,
+			v.LastEntry.Format(tFmt),
+		)
+	}
+
+	ws.sortByLastEntryAsc()
+	var pu *User
+	fmt.Printf("\nWinners, sorted:\n")
+	for _, v := range ws {
+		if nil == pu {
+			pu = v
+		} else {
+			if v.LastEntry.Before(pu.LastEntry) {
+				t.Errorf("%s is after %s", v.LastEntry, pu.LastEntry)
+			}
+		}
+		fmt.Printf(
+			"%-10s: %d @ %s\n",
+			v.Nick,
+			v.Points,
+			v.LastEntry.Format(tFmt),
+		)
+	}
+}
+
+func TestRemoveNickFromRound(t *testing.T) {
+	log.SetLevel(log.DebugLevel)
+	rand.Seed(time.Now().UnixNano())
+	sd := getData()
+	c := sd.get(TST_CHAN)
+
+	//nicks := []string{
+	//	"Oddlid",
+	//	"Tord",
+	//	"Snelhest",
+	//	"bAAAArd",
+	//}
+	nicks := c.nickList() // swap this for the above if not loading local list
+	for _, n := range nicks {
+		c.addNickForRound(n)
+	}
+	origLen := len(c.tmpNicks)
+	nickToRemove := nicks[1]
+
+	c.removeNickFromRound(nickToRemove)
+
+	newLen := len(c.tmpNicks)
+
+	// check length
+	if newLen != origLen - 1 {
+		t.Errorf("Expected length to be %d, but got %d", origLen - 1, newLen)
+	}
+
+	// check that it does not contain removed nick
+	for _, n := range c.tmpNicks {
+		if n == nickToRemove {
+			t.Errorf("%q should not be in c.tmpNicks anymore", nickToRemove)
+		}
+	}
+
+	// check order preserved
+	if c.tmpNicks[0] != nicks[0] {
+		t.Errorf("Nick at index %d should be %q", 0, nicks[0])
+	}
+	if c.tmpNicks[1] != nicks[2] {
+		t.Errorf("Nick at index %d should be %q", 1, nicks[2])
+	}
+	if c.tmpNicks[2] != nicks[3] {
+		t.Errorf("Nick at index %d should be %q", 2, nicks[3])
+	}
+
+}
+
+func TestOverShooters(t *testing.T) {
+	log.SetLevel(log.DebugLevel)
+	rand.Seed(time.Now().UnixNano())
+	sd := getData()
+	c := sd.get(TST_CHAN)
+	c.OvershootTax = 5
+	limit := getTargetScore()
+
+	//nicks := []string{
+	//	"Oddlid",
+	//	"Tord",
+	//	"Snelhest",
+	//	"bAAAArd",
+	//}
+	nicks := c.nickList()
+
+	// Helper for seeing who hit the spot right on
+	// When we get to the real code, we should when we check overshooters, check if the one at 0 points
+	// isLocked(), and if so, just ignore, otherwise add to list of winners.
+	markWinner := func(points int) (int, string) {
+		if 0 == points {
+			return points, " - Winner!"
+		}
+		return points, ""
+	}
+
+	// First, test when everyone got at or over the limit
+
+	for idx, nick := range nicks {
+		u := c.get(nick)
+		u.setLastEntry(time.Now())
+		u.setScore(limit + idx*2)
+	}
+
+	umap := c.getOverShooters()
+
+	fmt.Printf("\nLimit     : %d\n\n", limit)
+
+	for idx, nick := range nicks {
+		u := umap[nick]
+		expPoints := limit + idx*2
+		if u.getScore() != expPoints {
+			t.Errorf("Expected %q to have %d points, but got %d", nick, expPoints, u.getScore())
+		}
+		points, mark := markWinner(expPoints-limit)
+		fmt.Printf("%-10s: %d (+ %d points)%s\n", nick, u.getScore(), points, mark)
+	}
+
+	fmt.Printf("\n")
+	c.punishOverShooters(umap)
+
+	for idx, nick := range nicks {
+		u := umap[nick]
+		upoints := limit + idx*2
+		tax := c.getOverShootTaxFor(upoints)
+		expPoints := upoints - tax
+		if u.getScore() != expPoints {
+			t.Errorf("Expected %q to have %d points, but got %d", nick, expPoints, u.getScore())
+		}
+		fmt.Printf("%-10s: %d (- %d points)\n", nick, u.getScore(), tax)
+	}
+
+	// Second, test when some are below and some at or over
+
+	for idx, nick := range nicks {
+		u := c.get(nick)
+		u.setLastEntry(time.Now())
+		u.setScore((limit - 1) + idx*2) // first nick should be below the limit
+	}
+
+	umap = c.getOverShooters()
+
+	fmt.Printf("\nLimit     : %d\n\n", limit)
+
+	for idx, nick := range nicks {
+		u, found := umap[nick]
+		if !found {
+			score := c.get(nick).getScore()
+			fmt.Printf("%-10s: %d (%d points below limit)\n", nick, score, limit-score)
+			continue
+		}
+		expPoints := (limit - 1) + idx*2
+		if u.getScore() != expPoints {
+			t.Errorf("Expected %q to have %d points, but got %d", nick, expPoints, u.getScore())
+		}
+		fmt.Printf("%-10s: %d (+ %d points)\n", nick, u.getScore(), expPoints-limit)
+	}
 }
 
 func TestBonusConfigCalc(t *testing.T) {

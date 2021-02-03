@@ -1,6 +1,7 @@
 package leet
 
 import (
+	"sort"
 	"sync"
 	"time"
 
@@ -9,9 +10,42 @@ import (
 
 type User struct {
 	sync.RWMutex
-	Points int `json:"score"`
-	didTry bool
-	l      *logrus.Entry
+	Nick      string    `json:"nick"`       // duplicate of map key, but we need to have it here as well sometimes
+	Points    int       `json:"score"`      // current points total
+	LastEntry time.Time `json:"last_entry"` // time of last !1337 post that resulted in a score, positive or negative
+	didTry    bool
+	l         *logrus.Entry
+}
+
+type UserMap map[string]*User
+type UserSlice []*User
+
+func (um UserMap) toSlice() UserSlice {
+	us := make(UserSlice, len(um))
+	i := 0
+	for _, v := range um {
+		us[i] = v
+		i++
+	}
+	return us
+}
+
+func (um UserMap) filterByPointsEQ(points int) UserSlice {
+	us := make(UserSlice, 0, len(um))
+	for _, v := range um {
+		if points == v.Points {
+			us = append(us, v)
+		}
+	}
+	return us
+}
+
+func (us UserSlice) sortByLastEntryAsc() {
+	sort.Slice(us,
+		func(i, j int) bool {
+			return us[i].LastEntry.Before(us[j].LastEntry)
+		},
+	)
 }
 
 func (u *User) log() *logrus.Entry {
@@ -46,6 +80,14 @@ func (u *User) addScore(points int) int {
 	return u.Points
 }
 
+// mostly for testing at the time of writing
+func (u *User) setScore(points int) {
+	u.Lock()
+	u.Points = points
+	u.Unlock()
+}
+
+// wrapper around score()
 func (u *User) score(points int) (bool, int) {
 	if u.hasTried() {
 		return false, u.getScore()
@@ -58,4 +100,16 @@ func (u *User) score(points int) (bool, int) {
 		u.try(false)
 	})
 	return true, u.addScore(points)
+}
+
+func (u *User) getLastEntry() time.Time {
+	u.RLock()
+	defer u.RUnlock()
+	return u.LastEntry
+}
+
+func (u *User) setLastEntry(when time.Time) {
+	u.Lock()
+	u.LastEntry = when
+	u.Unlock()
 }

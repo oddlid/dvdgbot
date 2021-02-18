@@ -21,15 +21,15 @@ type User struct {
 type UserMap map[string]*User
 type UserSlice []*User
 
-func (um UserMap) toSlice() UserSlice {
-	us := make(UserSlice, len(um))
-	i := 0
-	for _, v := range um {
-		us[i] = v
-		i++
-	}
-	return us
-}
+//func (um UserMap) toSlice() UserSlice {
+//	us := make(UserSlice, len(um))
+//	i := 0
+//	for _, v := range um {
+//		us[i] = v
+//		i++
+//	}
+//	return us
+//}
 
 func (um UserMap) filterByPointsEQ(points int) UserSlice {
 	us := make(UserSlice, 0, len(um))
@@ -50,7 +50,6 @@ func (um UserMap) filterByLocked(locked bool) UserSlice {
 	}
 	return us
 }
-
 
 //func (um UserMap) splitByPointLimit(limit int) (below, at, above UserSlice) {
 //	maxLen := len(um)
@@ -156,11 +155,11 @@ func (u *User) setLastEntry(when time.Time) {
 	u.Unlock()
 }
 
-func (u User) getShortTime() string {
+func (u *User) getShortTime() string {
 	return u.getLastEntry().Format("15:04:05.999999999")
 }
 
-func (u User) getLongDate() string {
+func (u *User) getLongDate() string {
 	return u.getLastEntry().Format("2006-01-02 15:04:05.999999999")
 }
 

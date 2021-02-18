@@ -25,7 +25,7 @@ var (
 
 func getData() *ScoreData {
 	// in case this is run via gotest.sh, then we'd have a copy or real data here to use
-	if nil != _scoreData && !_scoreData.isEmpty(){
+	if nil != _scoreData && !_scoreData.isEmpty() {
 		return _scoreData
 	}
 
@@ -90,7 +90,7 @@ func TestInspection(t *testing.T) {
 	sd := getData()
 	c := sd.get(TST_CHAN)
 	c.InspectionTax = 50.14 // % of total points for the user with the least points in the current round
-	for k, _ := range c.Users {
+	for k := range c.Users {
 		c.addNickForRound(k) // adds to c.tmpNicks
 	}
 
@@ -147,7 +147,7 @@ func TestTaxFail(t *testing.T) {
 	c := sd.get(TST_CHAN)
 	c.InspectionTax = 50.14 // % of total points for the user with the least points in the current round
 	c.PostTaxFail = true
-	for k, _ := range c.Users {
+	for k := range c.Users {
 		c.addNickForRound(k) // adds to c.tmpNicks
 	}
 
@@ -215,7 +215,6 @@ func TestWinner(t *testing.T) {
 	//	sd.BotStart = bStart
 	//}
 
-
 	nick1 := "Oddlid"
 	//nick2 := "Tord"
 	odd := c.get(nick1)
@@ -232,7 +231,7 @@ func TestWinner(t *testing.T) {
 		fmt.Printf(
 			"%s: You're locked, as you're #%d, reaching %d points @ %s after %s :)\n",
 			nick1,
-			rank + 1,
+			rank+1,
 			getTargetScore(),
 			odd.getLongDate(),
 			timexString(timexDiff(sd.BotStart, odd.getLastEntry())),
@@ -350,8 +349,8 @@ func TestRemoveNickFromRound(t *testing.T) {
 	newLen := len(c.tmpNicks)
 
 	// check length
-	if newLen != origLen - 1 {
-		t.Errorf("Expected length to be %d, but got %d", origLen - 1, newLen)
+	if newLen != origLen-1 {
+		t.Errorf("Expected length to be %d, but got %d", origLen-1, newLen)
 	}
 
 	// check that it does not contain removed nick
@@ -412,7 +411,7 @@ func TestOverShooters(t *testing.T) {
 		if u.getScore() != expPoints {
 			t.Errorf("Expected %q to have %d points, but got %d", nick, expPoints, u.getScore())
 		}
-		points, mark := markWinner(expPoints-limit)
+		points, mark := markWinner(expPoints - limit)
 		fmt.Printf("%-10s: %d (+ %d points)%s\n", nick, u.getScore(), points, mark)
 	}
 
@@ -511,7 +510,6 @@ func TestRaceToFinish(t *testing.T) {
 		t.Logf("%-10s: %d", nick, c.get(nick).getScore())
 	}
 
-
 	// do tax
 	idx, tax := c.randomInspect() // most times we get -1 here and skip the rest
 	if idx > -1 {
@@ -543,9 +541,8 @@ func TestRaceToFinish(t *testing.T) {
 
 	t.Log("\nWinners:")
 	for idx, user := range ws {
-		t.Logf("%-10s: %d #%d [%s]", user.Nick, user.getScore(), idx + 1, user.getShortTime())
+		t.Logf("%-10s: %d #%d [%s]", user.Nick, user.getScore(), idx+1, user.getShortTime())
 	}
-
 
 	// clean up
 	c.clearNicksForRound()
@@ -878,7 +875,7 @@ func BenchmarkHitBonus(b *testing.B) {
 			b.Log(err)
 			b.FailNow()
 		}
-		if strings.Index(msg, "bonus") > -1 {
+		if strings.Contains(msg, "bonus") {
 			b.Log(msg)
 		}
 	}
@@ -918,7 +915,7 @@ func BenchmarkHit1337(b *testing.B) {
 			b.Log(err)
 			b.FailNow()
 		}
-		if strings.Index(msg, "[1337") > -1 {
+		if strings.Contains(msg, "[1337") {
 			b.Log(msg)
 		}
 	}

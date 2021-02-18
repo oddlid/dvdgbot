@@ -106,10 +106,22 @@ func (s *ScoreData) scheduleSave(filename string, delayMinutes time.Duration) bo
 	return s.saveInProgress
 }
 
+// Thinking about a new output format, something like this:
+// Oddlid   : 1337 [Rank: +03] [Overshoot tax: 00] [Tax: 00] [Greeting!] (Winner #X!)
+// Trying it out in a mock func before putting it in prod
+func (s *ScoreData) mockCalcAndPost(channel string) string {
+	//c := s.get(channel)
+	//scoreMap := c.getScoresForRound()
+	var sb strings.Builder
+
+	return sb.String()
+}
+
 func (s *ScoreData) calcAndPost(channel string) {
+	llog := s.log().WithField("func", "calcAndPost")
 	c := s.get(channel)
 	scoreMap := c.getScoresForRound()
-	c.mergeScoresForRound(scoreMap)
+	c.mergeScoresForRound(scoreMap) // maybe skip this step and do it manually here in order to keep track of point diffs?
 
 	var sb strings.Builder
 	fmt.Fprintf(&sb, "New positive scores for %s:\n", time.Now().Format("2006-01-02"))
@@ -129,7 +141,10 @@ func (s *ScoreData) calcAndPost(channel string) {
 	}
 
 	// Post results to channel
-	msgChan(channel, strings.TrimRight(sb.String(), "\n")) // get rid of final, extra newline
+	err := msgChan(channel, strings.TrimRight(sb.String(), "\n")) // get rid of final, extra newline
+	if nil != err {
+		llog.Error(err)
+	}
 	sb.Reset() // clear before later use
 
 	// Both Tord and Snelhest agrees that check for overshoot and it's punishment should come here,
@@ -145,7 +160,6 @@ func (s *ScoreData) calcAndPost(channel string) {
 	// Then, punish overshooters.
 	// Then, if we are to excempt those who hit the target from further taxation, delete them from c.tmpNicks.
 	// Update: We agreed that you will NOT be excempt from tax for hitting spot on target.
-
 
 	// This is probably the best point to trigger an inspection and post the results
 	// At any round, one contestant might be selected. But only a contestant, not someone who didn't participate this day
@@ -169,7 +183,10 @@ func (s *ScoreData) calcAndPost(channel string) {
 		} else {
 			fmt.Fprintf(&sb, "%s was randomly selected for taxation, but got off with a slap on the wrist ;)", nick)
 		}
-		msgChan(channel, sb.String())
+		err = msgChan(channel, sb.String())
+		if nil != err {
+			llog.Error(err)
+		}
 	}
 
 	// At this point, if we do NOT excempt winners from being taxated and it was a winner who got tax, we need to
@@ -194,10 +211,10 @@ func (s *ScoreData) get(channel string) *Channel {
 	c, found := s.Channels[channel]
 	if !found {
 		c = &Channel{
-			Name:    channel,
-			Users:   make(UserMap),
+			Name:  channel,
+			Users: make(UserMap),
 			//Ratings: make(Placements),
-			l:       s.log().WithField("channel", channel),
+			l: s.log().WithField("channel", channel),
 		}
 		s.Channels[channel] = c
 		c.l.WithField("func", "get").Debug("Channel object created")

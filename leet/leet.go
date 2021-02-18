@@ -63,10 +63,10 @@ func msgChan(channel, msg string) error {
 	}
 	_bot.SendMessage(
 		bot.OutgoingMessage{
-			channel,
-			msg,
-			&bot.User{},
-			nil,
+			Target:      channel,
+			Message:     msg,
+			Sender:      &bot.User{},
+			ProtoParams: nil,
 		},
 	)
 	return nil
@@ -132,6 +132,7 @@ func getScoreForEntry(t time.Time) (int, TimeCode) {
 }
 
 func checkArgs(cmd *bot.Cmd) (proceed bool, msg string) {
+	llog := _log.WithField("func", "checkArgs")
 	alen := len(cmd.Args)
 	if alen == 1 && "stats" == cmd.Args[0] {
 		if _scoreData.calcInProgress {
@@ -145,11 +146,16 @@ func checkArgs(cmd *bot.Cmd) (proceed bool, msg string) {
 		// TODO: Handle load errors and give feedback for BC as well
 		err := _bonusConfigs.loadFile(_bonusConfigFile)
 		if err != nil {
-			_log.WithError(err).Error("Error loading Bonus Configs from file")
+			llog.WithError(err).Error("Error loading Bonus Configs from file")
 		}
 		if !_scoreData.saveInProgress {
-			_scoreData.loadFile(_scoreFile)
-			msg = "Score data reloaded from file"
+			_, err = _scoreData.loadFile(_scoreFile)
+			if nil != err {
+				llog.Error(err)
+				msg = err.Error()
+			} else {
+				msg = "Score data reloaded from file"
+			}
 			return
 		} else {
 			msg = "A scheduled save is in progress. Will not reload right now."

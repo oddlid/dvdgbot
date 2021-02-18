@@ -18,16 +18,16 @@ import (
 
 type Channel struct {
 	sync.RWMutex
-	Name          string     `json:"channel_name,omitempty"` // we need to duplicate this from the parent map key, so that the instance knows its own name
-	Users         UserMap    `json:"users"`                  // string key is nick
-	InspectionTax float64    `json:"inspection_tax"`         // percentage, but no check if outside of 0-100
-	InspectAlways bool       `json:"inspect_always"`         // if false, only inspect if random value between 0 and 6 matches current weekday
-	TaxLoners     bool       `json:"tax_loners"`             // If to inspect and tax when only one contestant in a round
-	PostTaxFail   bool       `json:"post_tax_fail"`          // If to post to channel why taxation does NOT happen
-	OvershootTax  int        `json:"overshoot_tax"`          // interval for how much to deduct if user scores past target
+	Name          string  `json:"channel_name,omitempty"` // we need to duplicate this from the parent map key, so that the instance knows its own name
+	Users         UserMap `json:"users"`                  // string key is nick
+	InspectionTax float64 `json:"inspection_tax"`         // percentage, but no check if outside of 0-100
+	InspectAlways bool    `json:"inspect_always"`         // if false, only inspect if random value between 0 and 6 matches current weekday
+	TaxLoners     bool    `json:"tax_loners"`             // If to inspect and tax when only one contestant in a round
+	PostTaxFail   bool    `json:"post_tax_fail"`          // If to post to channel why taxation does NOT happen
+	OvershootTax  int     `json:"overshoot_tax"`          // interval for how much to deduct if user scores past target
 	//Ratings       Placements `json:"ratings"`                // who came first, second and so on to the final target point sum
-	tmpNicks      []string   // used for storing who participated in a specific round. Reset after calculation.
-	l             *logrus.Entry
+	tmpNicks []string // used for storing who participated in a specific round. Reset after calculation.
+	l        *logrus.Entry
 }
 
 func (c *Channel) log() *logrus.Entry {
@@ -103,7 +103,7 @@ func (c *Channel) name() (string, error) {
 
 func (c *Channel) nickList() []string {
 	nicks := make([]string, 0, len(c.Users))
-	for k, _ := range c.Users {
+	for k := range c.Users {
 		nicks = append(nicks, k)
 	}
 	return nicks
@@ -174,7 +174,7 @@ func (c *Channel) removeNickFromRound(nick string) bool {
 	}
 
 	nickIdx := -1
-	for idx, _ := range c.tmpNicks {
+	for idx := range c.tmpNicks {
 		if nick == c.tmpNicks[idx] {
 			nickIdx = idx
 			break
@@ -263,7 +263,7 @@ func (c *Channel) getOverShootTaxFor(limit, points int) int {
 		return 0
 	}
 	deduction := 0
-	for points - deduction >= limit {
+	for points-deduction >= limit {
 		deduction += c.OvershootTax
 	}
 	return deduction
@@ -351,7 +351,10 @@ func (c *Channel) randomInspect() (nickIndex, tax int) {
 	maxTax := c.getMaxRoundTax()
 	if maxTax < 1 { // I don't think we've ever reached this section irl
 		llog.WithField("maxTax", maxTax).Debug("Tax below 1, returning")
-		c.postTaxFail(fmt.Sprintf("No tax today. Calculated tax was: %f", maxTax))
+		err := c.postTaxFail(fmt.Sprintf("No tax today. Calculated tax was: %f", maxTax))
+		if nil != err {
+			llog.Error(err)
+		}
 		nickIndex = -1
 		return
 	}
@@ -421,4 +424,3 @@ func (c *Channel) getWinnerRank(nick string) int {
 //	delete(ps, nick)
 //	return found
 //}
-

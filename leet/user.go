@@ -13,6 +13,7 @@ type User struct {
 	Nick      string    `json:"nick"`       // duplicate of map key, but we need to have it here as well sometimes
 	Points    int       `json:"score"`      // current points total
 	LastEntry time.Time `json:"last_entry"` // time of last !1337 post that resulted in a score, positive or negative
+	Locked    bool      `json:"locked"`     // true if the user has reached the target limit
 	didTry    bool
 	l         *logrus.Entry
 }
@@ -33,19 +34,60 @@ func (um UserMap) toSlice() UserSlice {
 func (um UserMap) filterByPointsEQ(points int) UserSlice {
 	us := make(UserSlice, 0, len(um))
 	for _, v := range um {
-		if points == v.Points {
+		if v.getScore() == points {
 			us = append(us, v)
 		}
 	}
 	return us
 }
 
-func (us UserSlice) sortByLastEntryAsc() {
+func (um UserMap) filterByLocked(locked bool) UserSlice {
+	us := make(UserSlice, 0, len(um))
+	for _, v := range um {
+		if locked == v.Locked {
+			us = append(us, v)
+		}
+	}
+	return us
+}
+
+
+//func (um UserMap) splitByPointLimit(limit int) (below, at, above UserSlice) {
+//	maxLen := len(um)
+//	below = make(UserSlice, 0, maxLen)
+//	at = make(UserSlice, 0, maxLen)
+//	above = make(UserSlice, 0, maxLen)
+//
+//	for _, v := range um {
+//		points := v.getScore()
+//		if points < limit {
+//			below = append(below, v)
+//		} else if points == limit {
+//			at = append(at, v)
+//		} else if points > limit {
+//			above = append(above, v)
+//		}
+//	}
+//	return
+//}
+
+func (us UserSlice) sortByLastEntryAsc() UserSlice {
 	sort.Slice(us,
 		func(i, j int) bool {
 			return us[i].LastEntry.Before(us[j].LastEntry)
 		},
 	)
+	return us
+}
+
+// use this to get "rank" after sorting by date
+func (us UserSlice) getIndex(nick string) int {
+	for idx, u := range us {
+		if nick == u.Nick {
+			return idx
+		}
+	}
+	return -1
 }
 
 func (u *User) log() *logrus.Entry {
@@ -112,4 +154,24 @@ func (u *User) setLastEntry(when time.Time) {
 	u.Lock()
 	u.LastEntry = when
 	u.Unlock()
+}
+
+func (u User) getShortTime() string {
+	return u.getLastEntry().Format("15:04:05.999999999")
+}
+
+func (u User) getLongDate() string {
+	return u.getLastEntry().Format("2006-01-02 15:04:05.999999999")
+}
+
+func (u *User) setLocked(locked bool) {
+	u.Lock()
+	u.Locked = locked
+	u.Unlock()
+}
+
+func (u *User) isLocked() bool {
+	u.RLock()
+	defer u.RUnlock()
+	return u.Locked
 }

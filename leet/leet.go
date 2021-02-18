@@ -184,11 +184,14 @@ func leet(cmd *bot.Cmd) (string, error) {
 	//		"%s: You're locked, as you're #%d, reaching %d points @ %s after %s :)",
 	//		cmd.User.Nick,
 	//		rating.Rank + 1,
-	//		getTargetScore(),
-	//		rating.ReachedAt,
+	//		//getTargetScore(), // would maybe be better to get the users score here?
+	//		_scoreData.get(cmd.Channel).get(cmd.User.Nick).getScore(),
+	//		//rating.ReachedAt.Format("2006-01-02 15:04:05.999999999"),
+	//		rating.getLongDate(),
 	//		timexString(timexDiff(_scoreData.BotStart, rating.ReachedAt)),
 	//	), nil
 	//}
+	// TODO: replace the above with updated check for if user is marked as winner since before
 
 	// is the user spamming?
 	if _scoreData.didTry(cmd.Channel, cmd.User.Nick) {
@@ -257,7 +260,7 @@ func getTargetScore() int {
 	if 0 == _minute {
 		_minute = DEF_MINUTE
 	}
-	intVal, err := strconv.Atoi(fmt.Sprintf("%d%d", _hour, _minute))
+	intVal, err := strconv.Atoi(fmt.Sprintf("%d%02d", _hour, _minute))
 	if nil != err {
 		_log.WithError(err).Error("Conversion error")
 		return -1

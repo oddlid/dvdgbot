@@ -111,25 +111,26 @@ func (s *ScoreData) calcAndPost(channel string) {
 	scoreMap := c.getScoresForRound()
 	c.mergeScoresForRound(scoreMap)
 
-	msg := fmt.Sprintf("New positive scores for %s:\n", time.Now().Format("2006-01-02"))
+	var sb strings.Builder
+	fmt.Fprintf(&sb, "New positive scores for %s:\n", time.Now().Format("2006-01-02"))
 	fstr := getPadStrFmt(longestEntryLen(c.tmpNicks), ": %04d [+%02d] %s\n")
 
-	getmsg := func(nick string, total, plus int) string {
+	genmsg := func(w io.Writer, nick string, total, plus int) {
 		// The idea here is to print something extra if total points match any configured bonus value
 		has, bc := _bonusConfigs.hasValue(total)
 		if has {
-			return fmt.Sprintf(fstr, nick, total, plus, bc.Greeting)
+			fmt.Fprintf(w, fstr, nick, total, plus, bc.Greeting)
 		}
-		return fmt.Sprintf(fstr, nick, total, plus, "")
+		fmt.Fprintf(w, fstr, nick, total, plus, "")
 	}
-	// This is the point where to calc random inspection and loss of points!
 
 	for _, nick := range c.tmpNicks {
-		msg += getmsg(nick, c.get(nick).getScore(), scoreMap[nick])
+		genmsg(&sb, nick, c.get(nick).getScore(), scoreMap[nick])
 	}
 
 	// Post results to channel
-	msgChan(channel, strings.TrimRight(msg, "\n")) // get rid of final, extra newline
+	msgChan(channel, strings.TrimRight(sb.String(), "\n")) // get rid of final, extra newline
+	sb.Reset() // clear before later use
 
 	// Both Tord and Snelhest agrees that check for overshoot and it's punishment should come here,
 	// before regular taxation.
@@ -143,29 +144,32 @@ func (s *ScoreData) calcAndPost(channel string) {
 	// these over to a new slice and sort first, or something...
 	// Then, punish overshooters.
 	// Then, if we are to excempt those who hit the target from further taxation, delete them from c.tmpNicks.
+	// Update: We agreed that you will NOT be excempt from tax for hitting spot on target.
 
 
 	// This is probably the best point to trigger an inspection and post the results
-	// At any round, one contestant will be selected. But only a contestant, not someone who didn't participate this day
+	// At any round, one contestant might be selected. But only a contestant, not someone who didn't participate this day
 	// Selection is regular random of index between the the available ones in $scoreMap
 	// So we let the happy news come first, and then we get mean and calculate the random victim for the day, and post
 	// that with its updated/subtracted points value, but also if they were selected, but stayed clear.
-	idx, tax := c.randomInspect()
+	idx, tax := c.randomInspect() // most times we get -1 here and skip the rest
 	if idx > -1 {
 		nick := c.tmpNicks[idx]
 		user := c.get(nick)
 		if tax > 0 {
 			user.addScore(-tax)
-			msg = fmt.Sprintf(
+			fmt.Fprintf(
+				&sb,
 				"%s was randomly selected for taxation and lost %d points (now: %d points)",
 				nick,
 				tax,
 				user.getScore(),
 			)
+			// TODO: If the user getting taxed is amongst the winners, make sure to remove it from that list
 		} else {
-			msg = fmt.Sprintf("%s was randomly selected for taxation, but got off with a slap on the wrist ;)", nick)
+			fmt.Fprintf(&sb, "%s was randomly selected for taxation, but got off with a slap on the wrist ;)", nick)
 		}
-		msgChan(channel, msg)
+		msgChan(channel, sb.String())
 	}
 
 	// At this point, if we do NOT excempt winners from being taxated and it was a winner who got tax, we need to
@@ -192,7 +196,7 @@ func (s *ScoreData) get(channel string) *Channel {
 		c = &Channel{
 			Name:    channel,
 			Users:   make(UserMap),
-			Ratings: make(Placements),
+			//Ratings: make(Placements),
 			l:       s.log().WithField("channel", channel),
 		}
 		s.Channels[channel] = c
@@ -229,23 +233,21 @@ func (s *ScoreData) stats(channel string) string {
 	if err != nil {
 		return err.Error()
 	}
+	var sb strings.Builder
 	fstr := getPadStrFmt(kvl.LongestKey(), ": %04d\n")
-	str := fmt.Sprintf("Stats since %s:\n", s.BotStart.Format(time.RFC3339))
+	fmt.Fprintf(&sb, "Stats since %s:\n", s.BotStart.Format(time.RFC3339))
 	for _, kv := range kvl {
-		str += fmt.Sprintf(fstr, kv.Key, kv.Val)
+		fmt.Fprintf(&sb, fstr, kv.Key, kv.Val)
 	}
-	return str
+	return sb.String()
 }
 
-func (s *ScoreData) isLocked(channel, nick string) (bool, *Placement) {
-	ch := s.get(channel)
-	locked := ch.isLocked(nick)
+func (s *ScoreData) isLocked(channel, nick string) bool {
+	return s.get(channel).isLocked(nick)
+}
 
-	if locked {
-		return locked, ch.Ratings[nick]
-	}
-
-	return locked, nil
+func (s *ScoreData) getWinnerRank(channel, nick string) int {
+	return s.get(channel).getWinnerRank(nick)
 }
 
 func (s *ScoreData) didTry(channel, nick string) bool {

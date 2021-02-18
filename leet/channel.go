@@ -9,12 +9,12 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-type Placement struct {
-	Rank      int           `json:"rank"`
-	ReachedAt time.Time     `json:"reached_at"`
-}
+//type Placement struct {
+//	Rank      int           `json:"rank"`
+//	ReachedAt time.Time     `json:"reached_at"`
+//}
 
-type Placements map[string]*Placement // the key map is user nick, same as in user map
+//type Placements map[string]*Placement // the key map is user nick, same as in user map
 
 type Channel struct {
 	sync.RWMutex
@@ -25,7 +25,7 @@ type Channel struct {
 	TaxLoners     bool       `json:"tax_loners"`             // If to inspect and tax when only one contestant in a round
 	PostTaxFail   bool       `json:"post_tax_fail"`          // If to post to channel why taxation does NOT happen
 	OvershootTax  int        `json:"overshoot_tax"`          // interval for how much to deduct if user scores past target
-	Ratings       Placements `json:"ratings"`                // who came first, second and so on to the final target point sum
+	//Ratings       Placements `json:"ratings"`                // who came first, second and so on to the final target point sum
 	tmpNicks      []string   // used for storing who participated in a specific round. Reset after calculation.
 	l             *logrus.Entry
 }
@@ -244,8 +244,8 @@ func (c *Channel) getLowestTotalInRound() int {
 // and those that got past it.
 // Since it will be possible to miss so one's not included in tmpNicks, but still get a bonus
 // that takes you past the limit, we need to check all users here.
-func (c *Channel) getOverShooters() UserMap {
-	limit := getTargetScore()
+func (c *Channel) getOverShooters(limit int) UserMap {
+	//limit := getTargetScore()
 	ret := make(UserMap)
 	c.RLock()
 	for nick, user := range c.Users {
@@ -257,8 +257,8 @@ func (c *Channel) getOverShooters() UserMap {
 	return ret
 }
 
-func (c *Channel) getOverShootTaxFor(points int) int {
-	limit := getTargetScore()
+func (c *Channel) getOverShootTaxFor(limit, points int) int {
+	//limit := getTargetScore()
 	if limit == points {
 		return 0
 	}
@@ -269,10 +269,10 @@ func (c *Channel) getOverShootTaxFor(points int) int {
 	return deduction
 }
 
-func (c *Channel) punishOverShooters(umap UserMap) UserMap {
+func (c *Channel) punishOverShooters(limit int, umap UserMap) UserMap {
 	c.Lock()
 	for _, user := range umap {
-		tax := c.getOverShootTaxFor(user.getScore())
+		tax := c.getOverShootTaxFor(limit, user.getScore())
 		user.addScore(-tax)
 	}
 	c.Unlock()
@@ -345,11 +345,11 @@ func (c *Channel) shouldInspect() bool {
 func (c *Channel) randomInspect() (nickIndex, tax int) {
 	llog := c.log().WithField("func", "randomInspect")
 	if !c.shouldInspect() {
-		nickIndex = -2
+		nickIndex = -2 // unique "error" value indicating where this func bailed out
 		return
 	}
 	maxTax := c.getMaxRoundTax()
-	if maxTax < 1 {
+	if maxTax < 1 { // I don't think we've ever reached this section irl
 		llog.WithField("maxTax", maxTax).Debug("Tax below 1, returning")
 		c.postTaxFail(fmt.Sprintf("No tax today. Calculated tax was: %f", maxTax))
 		nickIndex = -1
@@ -362,54 +362,63 @@ func (c *Channel) randomInspect() (nickIndex, tax int) {
 }
 
 func (c *Channel) isLocked(nick string) bool {
-	c.RLock()
-	defer c.RUnlock()
-	return c.Ratings.isLocked(nick)
+	return c.get(nick).isLocked()
 }
 
 func (c *Channel) addWinner(nick string) bool {
 	if c.isLocked(nick) {
 		return false // user has already reached target point sum
 	}
-	// we need to get the time outside of the locking, or we get a deadlock
-	when := c.get(nick).getLastEntry()
-	c.Lock()
-	c.Ratings.add(nick, when)
-	c.Unlock()
+	c.get(nick).setLocked(true)
 	return true
 }
 
 func (c *Channel) removeWinner(nick string) bool {
-	c.Lock()
-	defer c.Unlock()
-	return c.Ratings.remove(nick)
+	u := c.get(nick)
+	wasLocked := u.isLocked()
+	u.setLocked(false)
+	return wasLocked
 }
 
-func (ps Placements) getNextRank() int {
-	rank := 0
-	for _, p := range ps {
-		if p.Rank >= rank {
-			rank = p.Rank + 1
-		}
-	}
-	return rank
+// calling this repeatedly might be inefficient and wasteful.
+// Might be better to implement a variant at the call site.
+func (c *Channel) getWinnerRank(nick string) int {
+	return c.Users.filterByLocked(true).sortByLastEntryAsc().getIndex(nick)
 }
+
+//func (p Placement) getLongDate() string {
+//	return p.ReachedAt.Format("2006-01-02 15:04:05.999999999")
+//}
+
+//func (ps Placements) getNextRank() int {
+//	// Basing rank upon when the user was added, is bad and fragile.
+//	// We should rank on timestamp instead.
+//	// This might require us to move this one step up, so we have access to the channel object.
+//	rank := 0
+//	for _, p := range ps {
+//		if p.Rank >= rank {
+//			rank = p.Rank + 1
+//		}
+//	}
+//	return rank
+//}
 
 // if a nick is in this map, it means it's locked because it has reached the target point sum
-func (ps Placements) isLocked(nick string) bool {
-	_, found := ps[nick]
-	return found
-}
+//func (ps Placements) isLocked(nick string) bool {
+//	_, found := ps[nick]
+//	return found
+//}
 
-func (ps Placements) add(nick string, when time.Time) {
-	ps[nick] = &Placement{
-		Rank:      ps.getNextRank(),
-		ReachedAt: when,
-	}
-}
+//func (ps Placements) add(nick string, when time.Time) {
+//	ps[nick] = &Placement{
+//		Rank:      ps.getNextRank(),
+//		ReachedAt: when,
+//	}
+//}
 
-func (ps Placements) remove(nick string) bool {
-	found := ps.isLocked(nick)
-	delete(ps, nick)
-	return found
-}
+//func (ps Placements) remove(nick string) bool {
+//	found := ps.isLocked(nick)
+//	delete(ps, nick)
+//	return found
+//}
+

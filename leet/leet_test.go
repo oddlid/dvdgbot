@@ -170,6 +170,39 @@ func TestStats(t *testing.T) {
 	fmt.Printf("%s", sd.stats(TST_CHAN))
 }
 
+func TestGetTargetScore(t *testing.T) {
+	log.SetLevel(log.DebugLevel)
+
+	defScore := getTargetScore()
+
+	t.Logf("Target score, from ENV (or default): %d\n", defScore)
+
+	// Since the result is cached in _targetScore, we need to reset that before altering
+	// _hour and _minute if we want changes to apply
+
+	// Verify caching, that modifying these without modifying _targetScore, does nothing
+	_hour = 12
+	_minute = 34
+
+	if getTargetScore() != defScore {
+		t.Errorf("Expected %d, but got %d", defScore, getTargetScore())
+	}
+
+	// Now make sure value is recalculated after resetting _targetScore
+	_targetScore = 0
+	_hour = 12
+	_minute = 04 // have a prefixing 0 to make sure it's included in the result
+
+	exp := 1204
+	score := getTargetScore()
+	if score != exp {
+		t.Errorf("Expected %d, but got %d", exp, score)
+	} else {
+		t.Logf("Target score after manual intervention is: %d", score)
+	}
+
+}
+
 func TestWinner(t *testing.T) {
 	log.SetLevel(log.DebugLevel)
 	rand.Seed(time.Now().UnixNano())
@@ -190,18 +223,19 @@ func TestWinner(t *testing.T) {
 	odd.setScore(getTargetScore())
 	odd.setLastEntry(time.Now())
 	//tord.setScore(getTargetScore())
-	sd.addWinner(TST_CHAN, nick1)
+	c.addWinner(nick1)
 	//sd.addWinner(TST_CHAN, nick2, time.Now())
 
-	locked, rating := sd.isLocked(TST_CHAN, nick1)
+	locked := c.isLocked(nick1)
 	if locked {
+		rank := c.getWinnerRank(nick1)
 		fmt.Printf(
 			"%s: You're locked, as you're #%d, reaching %d points @ %s after %s :)\n",
 			nick1,
-			rating.Rank + 1,
+			rank + 1,
 			getTargetScore(),
-			rating.ReachedAt.Format("2006-01-02 15:04:05.999999999"),
-			timexString(timexDiff(sd.BotStart, rating.ReachedAt)),
+			odd.getLongDate(),
+			timexString(timexDiff(sd.BotStart, odd.getLastEntry())),
 		)
 	} else {
 		t.Errorf("User %s expected to be locked", nick1)
@@ -239,7 +273,7 @@ func TestUserSort(t *testing.T) {
 	u4.setScore(targetScore + 1)
 	u4.setLastEntry(entryTime.Add(400 * time.Millisecond))
 
-	osmap := c.getOverShooters() // this should include all above but nicks[0]
+	osmap := c.getOverShooters(targetScore) // this should include all above but nicks[0]
 
 	fmt.Printf("\nTarget score: %d\n", targetScore)
 
@@ -348,12 +382,6 @@ func TestOverShooters(t *testing.T) {
 	c.OvershootTax = 5
 	limit := getTargetScore()
 
-	//nicks := []string{
-	//	"Oddlid",
-	//	"Tord",
-	//	"Snelhest",
-	//	"bAAAArd",
-	//}
 	nicks := c.nickList()
 
 	// Helper for seeing who hit the spot right on
@@ -374,7 +402,7 @@ func TestOverShooters(t *testing.T) {
 		u.setScore(limit + idx*2)
 	}
 
-	umap := c.getOverShooters()
+	umap := c.getOverShooters(limit)
 
 	fmt.Printf("\nLimit     : %d\n\n", limit)
 
@@ -389,12 +417,12 @@ func TestOverShooters(t *testing.T) {
 	}
 
 	fmt.Printf("\n")
-	c.punishOverShooters(umap)
+	c.punishOverShooters(limit, umap)
 
 	for idx, nick := range nicks {
 		u := umap[nick]
 		upoints := limit + idx*2
-		tax := c.getOverShootTaxFor(upoints)
+		tax := c.getOverShootTaxFor(limit, upoints)
 		expPoints := upoints - tax
 		if u.getScore() != expPoints {
 			t.Errorf("Expected %q to have %d points, but got %d", nick, expPoints, u.getScore())
@@ -410,7 +438,7 @@ func TestOverShooters(t *testing.T) {
 		u.setScore((limit - 1) + idx*2) // first nick should be below the limit
 	}
 
-	umap = c.getOverShooters()
+	umap = c.getOverShooters(limit)
 
 	fmt.Printf("\nLimit     : %d\n\n", limit)
 
@@ -427,6 +455,100 @@ func TestOverShooters(t *testing.T) {
 		}
 		fmt.Printf("%-10s: %d (+ %d points)\n", nick, u.getScore(), expPoints-limit)
 	}
+}
+
+// Here we'll try to simulate a round where users pass the finish line
+func TestRaceToFinish(t *testing.T) {
+	log.SetLevel(log.DebugLevel)
+	rand.Seed(time.Now().UnixNano())
+	sd := getData()
+	c := sd.get(TST_CHAN)
+	c.OvershootTax = 15
+	limit := getTargetScore()
+	nicks := c.nickList()
+	var sb strings.Builder
+
+	t.Logf("Target points: %d", limit)
+	t.Log("")
+
+	for idx, nick := range nicks {
+		startingPoints := limit + (idx - 2)
+		timeAdjVal := (idx - 2) * 17
+		t.Logf("Nick: %q, starts with %d points, time adjustment: %d", nick, startingPoints, timeAdjVal)
+		c.get(nick).setScore(startingPoints)
+		et := time.Now().Add(time.Duration(timeAdjVal) * time.Second)
+		success, msg := sd.tryScore(TST_CHAN, nick, et)
+		if success {
+			t.Logf("Bot reply: %q", msg)
+		}
+	}
+
+	// At this point, we should have some users below the limit, maybe some just at the spot, and some over.
+	// Depending on the exact time the test is run, some will get minus points for before and after, and often,
+	// some will get bonus points, no matter the placement.
+	// IRL, this is where sd.calcAndPost() would run, but we'll simulate that here instad of calling it, so we
+	// can get that func correctly implemented later.
+
+	// This is the first part of calcAndPost(), which calcs points and syncs them to the users.
+	// We skip the message generation right now.
+	scoreMap := c.getScoresForRound()
+	c.mergeScoresForRound(scoreMap)
+
+	t.Log("\nUser points after round calculation:")
+
+	for _, nick := range nicks {
+		t.Logf("%-10s: %d", nick, c.get(nick).getScore())
+	}
+
+	// Punish overshooters
+	// IRL, we'd might like to do this in more steps in order to post back messages to those
+	// with bad luck...
+	umap := c.punishOverShooters(limit, c.getOverShooters(limit))
+
+	t.Log("\nUser points after overshoot taxation:")
+
+	for _, nick := range nicks {
+		t.Logf("%-10s: %d", nick, c.get(nick).getScore())
+	}
+
+
+	// do tax
+	idx, tax := c.randomInspect() // most times we get -1 here and skip the rest
+	if idx > -1 {
+		nick := c.tmpNicks[idx]
+		user := c.get(nick)
+		if tax > 0 {
+			user.addScore(-tax)
+			fmt.Fprintf(
+				&sb,
+				"%s was randomly selected for taxation and lost %d points (now: %d points)",
+				nick,
+				tax,
+				user.getScore(),
+			)
+		} else {
+			fmt.Fprintf(&sb, "%s was randomly selected for taxation, but got off with a slap on the wrist ;)", nick)
+		}
+		//msgChan(channel, sb.String())
+		t.Log(sb.String())
+	}
+
+	ws := umap.filterByPointsEQ(limit)
+	// Add winners to channel
+	for _, user := range ws {
+		c.addWinner(user.Nick)
+	}
+
+	ws.sortByLastEntryAsc()
+
+	t.Log("\nWinners:")
+	for idx, user := range ws {
+		t.Logf("%-10s: %d #%d [%s]", user.Nick, user.getScore(), idx + 1, user.getShortTime())
+	}
+
+
+	// clean up
+	c.clearNicksForRound()
 }
 
 func TestBonusConfigCalc(t *testing.T) {

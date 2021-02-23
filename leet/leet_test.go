@@ -24,7 +24,7 @@ var (
 )
 
 func getData() *ScoreData {
-	// in case this is run via gotest.sh, then we'd have a copy or real data here to use
+	// in case this is run via gotest.sh, then we'd have a copy of real data here to use
 	if nil != _scoreData && !_scoreData.isEmpty() {
 		return _scoreData
 	}
@@ -65,25 +65,6 @@ func TestSave(t *testing.T) {
 	}
 	t.Logf("Saved %d bytes to %q", n, fname)
 }
-
-//func TestInspection(t *testing.T) {
-//	sd := getData()
-//	c := sd.get(TST_CHAN)
-//	c.InspectionTax = 5
-//	for k, _ := range c.Users {
-//		c.addNickForRound(k)
-//	}
-//	t.Logf("Had  | withdrawn | now  | nick")
-//	for k, v := range c.Users {
-//		_, sub := c.randomInspect()
-//		total := v.Points - sub
-//		t.Logf("%04d | %04d      | %04d | %s", v.Points, sub, total, k)
-//		if total < 0 {
-//			t.Log("Subtracted beyond 0")
-//			t.FailNow()
-//		}
-//	}
-//}
 
 func TestInspection(t *testing.T) {
 	log.SetLevel(log.DebugLevel)
@@ -165,7 +146,23 @@ func TestStats(t *testing.T) {
 	log.SetLevel(log.DebugLevel)
 	rand.Seed(time.Now().UnixNano())
 	sd := getData()
-	//c := sd.get(TST_CHAN)
+
+	u := sd.get(TST_CHAN).get("Oddlid")
+	u.setLocked(true)
+	u.setLastEntry(time.Now())
+	u.setScore(getTargetScore())
+
+	// add a BonusConfig that matches the current time
+	_bonusConfigs.add(
+		BonusConfig{
+			SubString:    fmt.Sprintf("%d", getTargetScore()),
+			Greeting:     "The final goal has been reached!",
+			PrefixChar:   48,
+			UseStep:      false,
+			StepPoints:   0,
+			NoStepPoints: 5,
+		},
+	)
 
 	fmt.Printf("%s", sd.stats(TST_CHAN))
 }
@@ -209,35 +206,26 @@ func TestWinner(t *testing.T) {
 	sd := getData()
 	c := sd.get(TST_CHAN)
 
-	// actual botstart: 2018-03-07T17:27:15.435563057+02:00
-	//bStart, tErr := time.Parse(time.RFC3339, "2018-03-07T17:27:15+02:00")
-	//if nil == tErr {
-	//	sd.BotStart = bStart
-	//}
 
-	nick1 := "Oddlid"
-	//nick2 := "Tord"
-	odd := c.get(nick1)
-	//tord := c.get(nick2)
-	odd.setScore(getTargetScore())
-	odd.setLastEntry(time.Now())
-	//tord.setScore(getTargetScore())
-	c.addWinner(nick1)
-	//sd.addWinner(TST_CHAN, nick2, time.Now())
+	nick := "Oddlid"
+	user := c.get(nick)
+	user.setScore(getTargetScore())
+	user.setLastEntry(time.Now())
+	user.setLocked(true)
 
-	locked := c.isLocked(nick1)
+	locked := user.isLocked()
 	if locked {
-		rank := c.getWinnerRank(nick1)
+		rank := c.getWinnerRank(nick)
 		fmt.Printf(
 			"%s: You're locked, as you're #%d, reaching %d points @ %s after %s :)\n",
-			nick1,
+			nick,
 			rank+1,
 			getTargetScore(),
-			odd.getLongDate(),
-			timexString(timexDiff(sd.BotStart, odd.getLastEntry())),
+			user.getLongDate(),
+			timexString(timexDiff(sd.BotStart, user.getLastEntry())),
 		)
 	} else {
-		t.Errorf("User %s expected to be locked", nick1)
+		t.Errorf("User %s expected to be locked", nick)
 	}
 }
 
@@ -325,53 +313,53 @@ func TestUserSort(t *testing.T) {
 	}
 }
 
-func TestRemoveNickFromRound(t *testing.T) {
-	log.SetLevel(log.DebugLevel)
-	rand.Seed(time.Now().UnixNano())
-	sd := getData()
-	c := sd.get(TST_CHAN)
-
-	//nicks := []string{
-	//	"Oddlid",
-	//	"Tord",
-	//	"Snelhest",
-	//	"bAAAArd",
-	//}
-	nicks := c.nickList() // swap this for the above if not loading local list
-	for _, n := range nicks {
-		c.addNickForRound(n)
-	}
-	origLen := len(c.tmpNicks)
-	nickToRemove := nicks[1]
-
-	c.removeNickFromRound(nickToRemove)
-
-	newLen := len(c.tmpNicks)
-
-	// check length
-	if newLen != origLen-1 {
-		t.Errorf("Expected length to be %d, but got %d", origLen-1, newLen)
-	}
-
-	// check that it does not contain removed nick
-	for _, n := range c.tmpNicks {
-		if n == nickToRemove {
-			t.Errorf("%q should not be in c.tmpNicks anymore", nickToRemove)
-		}
-	}
-
-	// check order preserved
-	if c.tmpNicks[0] != nicks[0] {
-		t.Errorf("Nick at index %d should be %q", 0, nicks[0])
-	}
-	if c.tmpNicks[1] != nicks[2] {
-		t.Errorf("Nick at index %d should be %q", 1, nicks[2])
-	}
-	if c.tmpNicks[2] != nicks[3] {
-		t.Errorf("Nick at index %d should be %q", 2, nicks[3])
-	}
-
-}
+//func TestRemoveNickFromRound(t *testing.T) {
+//	log.SetLevel(log.DebugLevel)
+//	rand.Seed(time.Now().UnixNano())
+//	sd := getData()
+//	c := sd.get(TST_CHAN)
+//
+//	//nicks := []string{
+//	//	"Oddlid",
+//	//	"Tord",
+//	//	"Snelhest",
+//	//	"bAAAArd",
+//	//}
+//	nicks := c.nickList() // swap this for the above if not loading local list
+//	for _, n := range nicks {
+//		c.addNickForRound(n)
+//	}
+//	origLen := len(c.tmpNicks)
+//	nickToRemove := nicks[1]
+//
+//	c.removeNickFromRound(nickToRemove)
+//
+//	newLen := len(c.tmpNicks)
+//
+//	// check length
+//	if newLen != origLen-1 {
+//		t.Errorf("Expected length to be %d, but got %d", origLen-1, newLen)
+//	}
+//
+//	// check that it does not contain removed nick
+//	for _, n := range c.tmpNicks {
+//		if n == nickToRemove {
+//			t.Errorf("%q should not be in c.tmpNicks anymore", nickToRemove)
+//		}
+//	}
+//
+//	// check order preserved
+//	if c.tmpNicks[0] != nicks[0] {
+//		t.Errorf("Nick at index %d should be %q", 0, nicks[0])
+//	}
+//	if c.tmpNicks[1] != nicks[2] {
+//		t.Errorf("Nick at index %d should be %q", 1, nicks[2])
+//	}
+//	if c.tmpNicks[2] != nicks[3] {
+//		t.Errorf("Nick at index %d should be %q", 2, nicks[3])
+//	}
+//
+//}
 
 func TestOverShooters(t *testing.T) {
 	log.SetLevel(log.DebugLevel)
@@ -534,7 +522,7 @@ func TestRaceToFinish(t *testing.T) {
 	ws := umap.filterByPointsEQ(limit)
 	// Add winners to channel
 	for _, user := range ws {
-		c.addWinner(user.Nick)
+		user.setLocked(true)
 	}
 
 	ws.sortByLastEntryAsc()
@@ -546,6 +534,46 @@ func TestRaceToFinish(t *testing.T) {
 
 	// clean up
 	c.clearNicksForRound()
+}
+
+func TestCalcScore(t *testing.T) {
+	log.SetLevel(log.DebugLevel)
+	rand.Seed(time.Now().UnixNano())
+	sd := getData()
+	c := sd.get(TST_CHAN)
+	c.OvershootTax = 15
+	limit := getTargetScore()
+	nicks := c.nickList()
+
+	// add a BonusConfig that matches the current time
+	_bonusConfigs.add(
+		BonusConfig{
+			SubString:    fmt.Sprintf("%d", limit),
+			Greeting:     "The final goal has been reached!",
+			PrefixChar:   48,
+			UseStep:      false,
+			StepPoints:   0,
+			NoStepPoints: 5,
+		},
+	)
+
+	t.Logf("Target points: %d", limit)
+	t.Log("")
+
+	for idx, nick := range nicks {
+		startingPoints := limit + (idx - 3)
+		timeAdjVal := (idx - 2) * 17
+		t.Logf("Nick: %q, starts with %d points, time adjustment: %d", nick, startingPoints, timeAdjVal)
+		c.get(nick).setScore(startingPoints)
+		et := time.Now().Add(time.Duration(timeAdjVal) * time.Second)
+		success, msg := sd.tryScore(TST_CHAN, nick, et)
+		if success {
+			t.Logf("Bot reply: %q", msg)
+		}
+	}
+
+	t.Logf("\n%s", sd.calcScore(TST_CHAN))
+
 }
 
 func TestBonusConfigCalc(t *testing.T) {
@@ -632,6 +660,64 @@ func TestBonusConfigCalc(t *testing.T) {
 		t.Logf("%s gives %d points bonus", ts, got)
 	}
 
+}
+
+// We should bench both calling the method repeatedly and also implementing
+// the same locally so we have cached values, so we can see how much waste
+// it is to call that method to get only one rank.
+// After running these, it showed the wasteful method getWinnerRank to be
+// over 20 times slower than caching the filtered and sorted slice, and
+// then just call getIndex for the given nick.
+func BenchmarkGetWinnerRank(b *testing.B) {
+	log.SetLevel(log.DebugLevel)
+	rand.Seed(time.Now().UnixNano())
+	sd := getData()
+	c := sd.get(TST_CHAN)
+	limit := getTargetScore()
+
+	for _, u := range c.Users {
+		u.setScore(limit)
+		u.setLastEntry(time.Now())
+		u.setLocked(true)
+	}
+
+	rank := 0
+	//b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		for nick := range c.Users {
+			rank = c.getWinnerRank(nick)
+		}
+	}
+	intVar = rank
+}
+
+// Locally cached version for comparison
+func BenchmarkGetWinnerRankCached(b *testing.B) {
+	log.SetLevel(log.DebugLevel)
+	rand.Seed(time.Now().UnixNano())
+	sd := getData()
+	c := sd.get(TST_CHAN)
+	limit := getTargetScore()
+
+	for _, u := range c.Users {
+		u.setScore(limit)
+		u.setLastEntry(time.Now())
+		u.setLocked(true)
+	}
+
+	// Now we have done the filtering in advance and have the results locally,
+	// so we can see how much is wasted on doing this repeatedly when calling c.getWinnerRank
+	us := c.Users.filterByLocked(true)
+	us.sortByLastEntryAsc()
+
+	rank := 0
+	//b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		for nick := range c.Users {
+			rank = us.getIndex(nick)
+		}
+	}
+	intVar = rank
 }
 
 // This BM shows that almost all execution time in bonus() goes to
@@ -832,12 +918,12 @@ func BenchmarkLeet(b *testing.B) {
 	//var result string
 	for i := 0; i < b.N; i++ {
 		cmd.User.Nick = fmt.Sprintf("Nick_%d", i)
-		msg, err := leet(cmd)
+		_, err := leet(cmd)
 		if err != nil {
 			b.Log(err)
 			b.FailNow()
 		}
-		b.Log(msg)
+		//b.Log(msg)
 	}
 }
 

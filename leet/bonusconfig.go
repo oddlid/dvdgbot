@@ -44,9 +44,10 @@ func (brs BonusReturns) TotalBonus() int {
 
 func (brs BonusReturns) String() string {
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("+%d points bonus! : ", brs.TotalBonus()))
+	//sb.WriteString(fmt.Sprintf("+%d points bonus! : ", brs.TotalBonus()))
+	fmt.Fprintf(&sb, "+%d points bonus! : ", brs.TotalBonus())
 	for i, br := range brs {
-		if (i > 0) {
+		if i > 0 {
 			sb.WriteString(" + ")
 		}
 		sb.WriteString(br.String())
@@ -118,14 +119,6 @@ func (bc BonusConfig) calc(ts string) BonusReturn {
 func (bcs *BonusConfigs) add(bc BonusConfig) {
 	*bcs = append(*bcs, bc)
 }
-
-//func (bcs BonusConfigs) calc(ts string) int {
-//	total := 0
-//	for _, bc := range bcs {
-//		total += bc.calc(ts)
-//	}
-//	return total
-//}
 
 func (bcs BonusConfigs) calc(ts string) BonusReturns {
 	brs := make(BonusReturns, 0)

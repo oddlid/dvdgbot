@@ -51,6 +51,17 @@ func (um UserMap) filterByLocked(locked bool) UserSlice {
 	return us
 }
 
+func (um UserMap) longestNickLen() int {
+	maxlen := 0
+	for k := range um {
+		nlen := len(k)
+		if nlen > maxlen {
+			maxlen = nlen
+		}
+	}
+	return maxlen
+}
+
 //func (um UserMap) splitByPointLimit(limit int) (below, at, above UserSlice) {
 //	maxLen := len(um)
 //	below = make(UserSlice, 0, maxLen)
@@ -128,7 +139,7 @@ func (u *User) setScore(points int) {
 	u.Unlock()
 }
 
-// wrapper around score()
+// wrapper around addScore()
 func (u *User) score(points int) (bool, int) {
 	if u.hasTried() {
 		return false, u.getScore()
@@ -156,7 +167,14 @@ func (u *User) setLastEntry(when time.Time) {
 }
 
 func (u *User) getShortTime() string {
-	return u.getLastEntry().Format("15:04:05.999999999")
+	// use 0's to get subsecond value padded,
+	// use 9's to get trailing 0's removed.
+	// I don't know yet why, but when running tests on my mac,
+	// I always get the last 3 digits as 0 when using padding,
+	// although they're never 0 when calling t.Nanoseconds()
+	// other places in the code.
+	// TODO: Try to get full precision here
+	return u.getLastEntry().Format("15:04:05.000000000")
 }
 
 func (u *User) getLongDate() string {

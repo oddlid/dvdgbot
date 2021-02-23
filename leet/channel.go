@@ -9,25 +9,17 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-//type Placement struct {
-//	Rank      int           `json:"rank"`
-//	ReachedAt time.Time     `json:"reached_at"`
-//}
-
-//type Placements map[string]*Placement // the key map is user nick, same as in user map
-
 type Channel struct {
 	sync.RWMutex
-	Name          string  `json:"channel_name,omitempty"` // we need to duplicate this from the parent map key, so that the instance knows its own name
-	Users         UserMap `json:"users"`                  // string key is nick
-	InspectionTax float64 `json:"inspection_tax"`         // percentage, but no check if outside of 0-100
-	InspectAlways bool    `json:"inspect_always"`         // if false, only inspect if random value between 0 and 6 matches current weekday
-	TaxLoners     bool    `json:"tax_loners"`             // If to inspect and tax when only one contestant in a round
-	PostTaxFail   bool    `json:"post_tax_fail"`          // If to post to channel why taxation does NOT happen
-	OvershootTax  int     `json:"overshoot_tax"`          // interval for how much to deduct if user scores past target
-	//Ratings       Placements `json:"ratings"`                // who came first, second and so on to the final target point sum
-	tmpNicks []string // used for storing who participated in a specific round. Reset after calculation.
-	l        *logrus.Entry
+	Name          string   `json:"channel_name,omitempty"` // we need to duplicate this from the parent map key, so that the instance knows its own name
+	Users         UserMap  `json:"users"`                  // string key is nick
+	InspectionTax float64  `json:"inspection_tax"`         // percentage, but no check if outside of 0-100
+	InspectAlways bool     `json:"inspect_always"`         // if false, only inspect if random value between 0 and 6 matches current weekday
+	TaxLoners     bool     `json:"tax_loners"`             // If to inspect and tax when only one contestant in a round
+	PostTaxFail   bool     `json:"post_tax_fail"`          // If to post to channel why taxation does NOT happen
+	OvershootTax  int      `json:"overshoot_tax"`          // interval for how much to deduct if user scores past target
+	tmpNicks      []string // used for storing who participated in a specific round. Reset after calculation.
+	l             *logrus.Entry
 }
 
 func (c *Channel) log() *logrus.Entry {
@@ -53,34 +45,6 @@ func (c *Channel) get(nick string) *User {
 	}
 	return user
 }
-
-// Could have saved the name of the channel in the struct, but since we already have it
-// in the logrus.Entry, we can pull it from that without adding to the struct
-//func (c *Channel) name() (string, error) {
-//	// can't rely on the log() method here, as that will return an Entry without the channel name
-//	// if the channels Entry is not set
-//	if nil == c.l {
-//		return "", fmt.Errorf("log is nil, can't derive channel name")
-//	}
-//	entry, found := c.l.Data["channel"] // type Fields map[string]interface{}
-//	if !found {
-//		// TODO: 2020-06-02 20:48 - This is where it fails now
-//		// 2020-06-03 23:02: I now suspect this problem comes from the loading of the channel object
-//		// via JSON. When I run tests, where we create the ScoreData structure with all it's children in code,
-//		// the branch where the log field with the channel name is set, is reached. This does not however happen
-//		// when the structure is loaded from JSON.
-//		// Solution? Maybe just save the channel name in the channel object itself...
-//		return "", fmt.Errorf("no logrus field with key \"channel\"")
-//	}
-//	cname := fmt.Sprintf("%v", entry)
-//
-//	c.log().WithFields(logrus.Fields{
-//		"func": "name",
-//		"name": cname,
-//	}).Debug("Resolved channel name")
-//
-//	return cname, nil
-//}
 
 func (c *Channel) name() (string, error) {
 	key := "channel"
@@ -143,15 +107,15 @@ func (c *Channel) postTaxFail(msg string) error {
 	return err
 }
 
-func (c *Channel) maxPoints() (nick string, res int) {
-	for k, v := range c.Users {
-		if v.Points > res {
-			res = v.Points
-			nick = k
-		}
-	}
-	return
-}
+//func (c *Channel) maxPoints() (nick string, res int) {
+//	for k, v := range c.Users {
+//		if v.Points > res {
+//			res = v.Points
+//			nick = k
+//		}
+//	}
+//	return
+//}
 
 func (c *Channel) hasPendingScores() bool {
 	c.RLock()
@@ -168,31 +132,32 @@ func (c *Channel) addNickForRound(nick string) int {
 }
 
 // removeNickFromRound returns true if nick was found and deleted, false otherwise
-func (c *Channel) removeNickFromRound(nick string) bool {
-	if nil == c.tmpNicks || len(c.tmpNicks) == 0 {
-		return false
-	}
-
-	nickIdx := -1
-	for idx := range c.tmpNicks {
-		if nick == c.tmpNicks[idx] {
-			nickIdx = idx
-			break
-		}
-	}
-
-	if -1 == nickIdx {
-		return false
-	}
-
-	// Use slow version that maintains order, from https://yourbasic.org/golang/delete-element-slice/
-	numNicks := len(c.tmpNicks)
-	copy(c.tmpNicks[nickIdx:], c.tmpNicks[nickIdx+1:])
-	c.tmpNicks[numNicks-1] = ""
-	c.tmpNicks = c.tmpNicks[:numNicks-1]
-
-	return true
-}
+// Not in use now, but keeping it commented for reference, in case we need it later.
+//func (c *Channel) removeNickFromRound(nick string) bool {
+//	if nil == c.tmpNicks || len(c.tmpNicks) == 0 {
+//		return false
+//	}
+//
+//	nickIdx := -1
+//	for idx := range c.tmpNicks {
+//		if nick == c.tmpNicks[idx] {
+//			nickIdx = idx
+//			break
+//		}
+//	}
+//
+//	if -1 == nickIdx {
+//		return false
+//	}
+//
+//	// Use slow version that maintains order, from https://yourbasic.org/golang/delete-element-slice/
+//	numNicks := len(c.tmpNicks)
+//	copy(c.tmpNicks[nickIdx:], c.tmpNicks[nickIdx+1:])
+//	c.tmpNicks[numNicks-1] = ""
+//	c.tmpNicks = c.tmpNicks[:numNicks-1]
+//
+//	return true
+//}
 
 func (c *Channel) clearNicksForRound() {
 	c.Lock()
@@ -245,7 +210,6 @@ func (c *Channel) getLowestTotalInRound() int {
 // Since it will be possible to miss so one's not included in tmpNicks, but still get a bonus
 // that takes you past the limit, we need to check all users here.
 func (c *Channel) getOverShooters(limit int) UserMap {
-	//limit := getTargetScore()
 	ret := make(UserMap)
 	c.RLock()
 	for nick, user := range c.Users {
@@ -258,7 +222,6 @@ func (c *Channel) getOverShooters(limit int) UserMap {
 }
 
 func (c *Channel) getOverShootTaxFor(limit, points int) int {
-	//limit := getTargetScore()
 	if limit == points {
 		return 0
 	}
@@ -269,6 +232,7 @@ func (c *Channel) getOverShootTaxFor(limit, points int) int {
 	return deduction
 }
 
+// TODO: Rewrite tests, as they are the only ones using this method, so we can remove this
 func (c *Channel) punishOverShooters(limit int, umap UserMap) UserMap {
 	c.Lock()
 	for _, user := range umap {
@@ -364,63 +328,15 @@ func (c *Channel) randomInspect() (nickIndex, tax int) {
 	return
 }
 
-func (c *Channel) isLocked(nick string) bool {
-	return c.get(nick).isLocked()
-}
-
-func (c *Channel) addWinner(nick string) bool {
-	if c.isLocked(nick) {
-		return false // user has already reached target point sum
-	}
-	c.get(nick).setLocked(true)
-	return true
-}
-
-func (c *Channel) removeWinner(nick string) bool {
-	u := c.get(nick)
-	wasLocked := u.isLocked()
-	u.setLocked(false)
-	return wasLocked
-}
-
-// calling this repeatedly might be inefficient and wasteful.
+// Calling this repeatedly might be inefficient and wasteful.
 // Might be better to implement a variant at the call site.
+// Update: Benchmarks showed this to be over 20x slower when called
+// repeatedly for a list of 7 "winners", rather than first getting
+// the filtered and sorted list, and then running getIndex with the
+// list cached. So yes, very wasteful. But we still need it some places,
+// as it would otherwise be too cumbersome, like in ScoreData.calcScore.
+// But in that method, speed doesn't matter that much, as it happens after
+// everyone is done trying to score as fast as possible.
 func (c *Channel) getWinnerRank(nick string) int {
 	return c.Users.filterByLocked(true).sortByLastEntryAsc().getIndex(nick)
 }
-
-//func (p Placement) getLongDate() string {
-//	return p.ReachedAt.Format("2006-01-02 15:04:05.999999999")
-//}
-
-//func (ps Placements) getNextRank() int {
-//	// Basing rank upon when the user was added, is bad and fragile.
-//	// We should rank on timestamp instead.
-//	// This might require us to move this one step up, so we have access to the channel object.
-//	rank := 0
-//	for _, p := range ps {
-//		if p.Rank >= rank {
-//			rank = p.Rank + 1
-//		}
-//	}
-//	return rank
-//}
-
-// if a nick is in this map, it means it's locked because it has reached the target point sum
-//func (ps Placements) isLocked(nick string) bool {
-//	_, found := ps[nick]
-//	return found
-//}
-
-//func (ps Placements) add(nick string, when time.Time) {
-//	ps[nick] = &Placement{
-//		Rank:      ps.getNextRank(),
-//		ReachedAt: when,
-//	}
-//}
-
-//func (ps Placements) remove(nick string) bool {
-//	found := ps.isLocked(nick)
-//	delete(ps, nick)
-//	return found
-//}

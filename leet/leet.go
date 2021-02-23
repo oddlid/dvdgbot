@@ -2,6 +2,7 @@ package leet
 
 import (
 	"fmt"
+	"io"
 	"math/rand"
 	"os"
 	"strconv"
@@ -16,7 +17,7 @@ import (
 const (
 	DEF_HOUR          = 13                               // Override with env var LEETBOT_HOUR
 	DEF_MINUTE        = 37                               // Override with env var LEETBOT_MINUTE
-	SCORE_FILE        = "/tmp/leetbot_scores.json"       // Override with env var LEETBOT_MINUTE
+	SCORE_FILE        = "/tmp/leetbot_scores.json"       // Override with env var LEETBOT_SCOREFILE
 	BONUSCONFIGS_FILE = "/tmp/leetbot_bonusconfigs.json" // Override with env var LEETBOT_BONUSCONFIGFILE
 	PLUGIN            = "LeetBot"                        // Just used for log output
 )
@@ -76,16 +77,35 @@ func getPadStrFmt(alignAt int, format string) string {
 	return fmt.Sprintf("%s%d%s", "%-", alignAt, "s "+format)
 }
 
-func longestEntryLen(s []string) int {
-	maxlen := 0
-	for i := range s {
-		nlen := len(s[i])
-		if nlen > maxlen {
-			maxlen = nlen
+func writePad(w io.Writer, align int, str string) {
+	strfmt := getPadStrFmt(align, "")
+	fmt.Fprintf(w, strfmt, str)
+}
+
+func inStrSlice(slc []string, val string) (int, bool) {
+	for idx, entry := range slc {
+		if val == entry {
+			return idx, true
 		}
 	}
-	return maxlen
+	return -1, false
 }
+
+//func hasKey(m map[string]interface{}, key string) bool {
+//	_, found := m[key]
+//	return found
+//}
+
+//func longestEntryLen(s []string) int {
+//	maxlen := 0
+//	for i := range s {
+//		nlen := len(s[i])
+//		if nlen > maxlen {
+//			maxlen = nlen
+//		}
+//	}
+//	return maxlen
+//}
 
 func timeFrame(t time.Time) TimeCode {
 	th := t.Hour()
@@ -184,20 +204,18 @@ func leet(cmd *bot.Cmd) (string, error) {
 	}
 
 	// has the user already reached the target point sum and should not contend?
-	//locked, rating := _scoreData.isLocked(cmd.Channel, cmd.User.Nick)
-	//if locked {
-	//	return fmt.Sprintf(
-	//		"%s: You're locked, as you're #%d, reaching %d points @ %s after %s :)",
-	//		cmd.User.Nick,
-	//		rating.Rank + 1,
-	//		//getTargetScore(), // would maybe be better to get the users score here?
-	//		_scoreData.get(cmd.Channel).get(cmd.User.Nick).getScore(),
-	//		//rating.ReachedAt.Format("2006-01-02 15:04:05.999999999"),
-	//		rating.getLongDate(),
-	//		timexString(timexDiff(_scoreData.BotStart, rating.ReachedAt)),
-	//	), nil
-	//}
-	// TODO: replace the above with updated check for if user is marked as winner since before
+	c := _scoreData.get(cmd.Channel)
+	u := c.get(cmd.User.Nick)
+	if u.isLocked() {
+		return fmt.Sprintf(
+			"%s: You're locked, as you're #%d, reaching %d points @ %s after %s :)",
+			u.Nick,
+			c.getWinnerRank(u.Nick),
+			u.getScore(),
+			u.getLongDate(),
+			timexString(timexDiff(_scoreData.BotStart, u.getLastEntry())),
+		), nil
+	}
 
 	// is the user spamming?
 	if _scoreData.didTry(cmd.Channel, cmd.User.Nick) {
@@ -254,7 +272,8 @@ func envDefInt(key string, fallback int) int {
 	return intVal
 }
 
-// getTargetScore should be used only _after_ pickupEnv, as it will modify vars _hour/_minute if not set
+// getTargetScore should be used only _after_ pickupEnv, as it will modify
+// vars _hour/_minute if not set
 func getTargetScore() int {
 	// return cached result if it exists
 	if 0 != _targetScore {
@@ -298,12 +317,13 @@ func init() {
 		_log.WithError(err).Error("Error loading Bonus Configs from file")
 	}
 
+	// Init rand for using in tax calculation
+	rand.Seed(time.Now().UnixNano())
+
 	bot.RegisterCommand(
 		"1337",
 		"Register 1337 event, or print stats",
 		"[stats|reload]",
 		leet,
 	)
-	// Init rand for picking out the sore loser of the day
-	rand.Seed(time.Now().UnixNano())
 }

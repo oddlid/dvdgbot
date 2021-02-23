@@ -21,6 +21,7 @@ var (
 	intVar  int
 	strVar  string
 	tcVar   TimeCode
+	userVar *User
 )
 
 func getData() *ScoreData {
@@ -718,6 +719,53 @@ func BenchmarkGetWinnerRankCached(b *testing.B) {
 		}
 	}
 	intVar = rank
+}
+
+
+/*
+2021-02-23:
+I was thinking that I should maybe redesign this whole module, as there's constantly
+shitloads of lookups of channel and user throughout the code.
+But, since most of them are for existing channel/user, and seeing as getting an existing
+map entry is so much faster than creating new ones, I don't think it is really important.
+At least not in the performance scope of this game.
+But, just as an exercise in making better code designs, it would be good.
+We should then get both the channel and user object in leet(), as that is already done,
+then pass those pointers around everywhere they're used. That should save a lot of lookups.
+*/
+
+// 24.3 ns/op
+func BenchmarkGetExistingUser(b *testing.B) {
+	log.SetLevel(log.DebugLevel)
+	rand.Seed(time.Now().UnixNano())
+	sd := getData()
+	c := sd.get(TST_CHAN)
+
+	nick := "Oddlid"
+
+	var user *User
+	for i := 0; i < b.N; i++ {
+		user = c.get(nick)
+	}
+	userVar = user
+}
+
+// 820 ns/op
+func BenchmarkGetNonExistingUser(b *testing.B) {
+	log.SetLevel(log.DebugLevel)
+	rand.Seed(time.Now().UnixNano())
+	sd := getData()
+	c := sd.get(TST_CHAN)
+
+	nick := "Oddlid"
+	delete(c.Users, nick)
+
+	var user *User
+	for i := 0; i < b.N; i++ {
+		user = c.get(nick)
+		delete(c.Users, nick)
+	}
+	userVar = user
 }
 
 // This BM shows that almost all execution time in bonus() goes to

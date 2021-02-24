@@ -35,19 +35,34 @@ func getData() *ScoreData {
 	}
 
 	// Fill with some test data if empty
-	fmt.Println("Creating Oddlid")
-	o := _scoreData.get(TST_CHAN).get("Oddlid")
-	fmt.Println("Creating Tord")
-	t := _scoreData.get(TST_CHAN).get("Tord")
-	fmt.Println("Creating Snelhest")
-	s := _scoreData.get(TST_CHAN).get("Snelhest")
-	fmt.Println("Creating bAAAArd")
-	b := _scoreData.get(TST_CHAN).get("bAAAArd")
+	//fmt.Println("Creating Oddlid")
+	//o := _scoreData.get(TST_CHAN).get("Oddlid")
+	//fmt.Println("Creating Tord")
+	//t := _scoreData.get(TST_CHAN).get("Tord")
+	//fmt.Println("Creating Snelhest")
+	//s := _scoreData.get(TST_CHAN).get("Snelhest")
+	//fmt.Println("Creating bAAAArd")
+	//b := _scoreData.get(TST_CHAN).get("bAAAArd")
 
-	o.addScore(10)
-	t.addScore(8)
-	s.addScore(6)
-	b.addScore(4)
+	//o.addScore(10)
+	//t.addScore(8)
+	//s.addScore(6)
+	//b.addScore(4)
+
+	nicks := []string{
+		"Oddlid",
+		"Snelhest",
+		"Tord",
+		"Tormod",
+		"ZeGerman",
+		"bAAAArd",
+		"bitslap",
+	}
+
+	for idx, nick := range nicks {
+		points := idx * 2
+		_scoreData.get(TST_CHAN).get(nick).score(points, time.Now())
+	}
 
 	return _scoreData
 }

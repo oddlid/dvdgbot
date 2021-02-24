@@ -312,13 +312,13 @@ func (s *ScoreData) tryScore(c *Channel, u *User, t time.Time) (bool, string) {
 	brs := _bonusConfigs.calc(fmt.Sprintf("%02d%09d", t.Second(), t.Nanosecond()))
 	bonusPoints := brs.TotalBonus()
 
-	didTry, userTotal := u.score(points + bonusPoints, t)
-	if didTry {
+	didScore, userTotal := u.score(points + bonusPoints, t)
+	if !didScore {
 		s.log().WithFields(logrus.Fields{
 			"func":   "tryScore",
-			"didTry": didTry,
+			"didScore": didScore,
 		}).Error("It should not be possible to reach this branch")
-		return true, fmt.Sprintf("%s: Stop spamming!", u.Nick)
+		return false, fmt.Sprintf("%s: I'm retarded and made a logical error :'(", u.Nick)
 	}
 
 	missTmpl := fmt.Sprintf("%s Too %s, sucker! %s: %d", ts, "%s", u.Nick, userTotal)

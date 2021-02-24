@@ -8,6 +8,11 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+
+// I want to log the tightest entry as well, since I on the first prod test @ 2021-02-24 got:
+// 2021-02-24 13:37:00.00065419 which might be one of the tightest scores ever.
+// Snelhest got: 2021-02-24 13:36:59.972826697 (miss + bonus)
+// But I'm just noting that now, and fixing bugs, before new features.
 type User struct {
 	sync.RWMutex
 	Nick      string    `json:"nick"`       // duplicate of map key, but we need to have it here as well sometimes
@@ -167,7 +172,7 @@ func (u *User) getShortTime() string {
 }
 
 func (u *User) getLongDate() string {
-	return u.getLastEntry().Format("2006-01-02 15:04:05.999999999")
+	return u.getLastEntry().Format("2006-01-02 15:04:05.000000000")
 }
 
 func (u *User) setLocked(locked bool) {

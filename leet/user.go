@@ -21,15 +21,13 @@ type User struct {
 type UserMap map[string]*User
 type UserSlice []*User
 
-//func (um UserMap) toSlice() UserSlice {
-//	us := make(UserSlice, len(um))
-//	i := 0
-//	for _, v := range um {
-//		us[i] = v
-//		i++
-//	}
-//	return us
-//}
+func (um UserMap) toSlice() UserSlice {
+	us := make(UserSlice, 0, len(um))
+	for _, v := range um {
+		us = append(us, v)
+	}
+	return us
+}
 
 func (um UserMap) filterByPointsEQ(points int) UserSlice {
 	us := make(UserSlice, 0, len(um))
@@ -62,29 +60,19 @@ func (um UserMap) longestNickLen() int {
 	return maxlen
 }
 
-//func (um UserMap) splitByPointLimit(limit int) (below, at, above UserSlice) {
-//	maxLen := len(um)
-//	below = make(UserSlice, 0, maxLen)
-//	at = make(UserSlice, 0, maxLen)
-//	above = make(UserSlice, 0, maxLen)
-//
-//	for _, v := range um {
-//		points := v.getScore()
-//		if points < limit {
-//			below = append(below, v)
-//		} else if points == limit {
-//			at = append(at, v)
-//		} else if points > limit {
-//			above = append(above, v)
-//		}
-//	}
-//	return
-//}
-
 func (us UserSlice) sortByLastEntryAsc() UserSlice {
 	sort.Slice(us,
 		func(i, j int) bool {
 			return us[i].LastEntry.Before(us[j].LastEntry)
+		},
+	)
+	return us
+}
+
+func (us UserSlice) sortByPointsDesc() UserSlice {
+	sort.Slice(us,
+		func(i, j int) bool {
+			return us[i].Points > us[j].Points
 		},
 	)
 	return us
@@ -140,11 +128,12 @@ func (u *User) setScore(points int) {
 }
 
 // wrapper around addScore()
-func (u *User) score(points int) (bool, int) {
+func (u *User) score(points int, when time.Time) (bool, int) {
 	if u.hasTried() {
 		return false, u.getScore()
 	}
 	u.try(true)
+	u.setLastEntry(when)
 	// Reset didTry after 2 minutes
 	// This should create a "loophole" so that if a user posts too early and gets -1,
 	// they could manage to get another -1 by being too late as well :D

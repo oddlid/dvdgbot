@@ -73,26 +73,6 @@ func (c *Channel) nickList() []string {
 	return nicks
 }
 
-func (c *Channel) post(msg string) error {
-	llog := c.log().WithField("func", "post")
-	if "" == msg {
-		str := "Refusing to post empty message"
-		llog.Error(str)
-		return fmt.Errorf(str)
-	}
-	cname, err := c.name()
-	if nil != err {
-		llog.Error(err)
-		return err
-	}
-	llog.WithFields(logrus.Fields{
-		"message": msg,
-		"cname":   cname, // we use "cname" as key here in order to see that we don't override inherited value for "channel"
-	}).Debug("Delegating channel post to parent bot")
-
-	return msgChan(cname, msg) // delegate to parent
-}
-
 func (c *Channel) postTaxFail(msg string) error {
 	llog := c.log().WithField("func", "postTaxFail")
 	if !c.PostTaxFail {
@@ -100,10 +80,18 @@ func (c *Channel) postTaxFail(msg string) error {
 		llog.Debug(str)
 		return fmt.Errorf(str)
 	}
-	err := c.post(msg)
+
+	cname, err := c.name()
+	if nil != err {
+		llog.Error(err)
+		return err
+	}
+
+	err = msgChan(cname, msg)
 	if nil != err {
 		llog.Error(err)
 	}
+
 	return err
 }
 

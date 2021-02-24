@@ -218,12 +218,12 @@ func leet(cmd *bot.Cmd) (string, error) {
 	}
 
 	// is the user spamming?
-	if _scoreData.didTry(cmd.Channel, cmd.User.Nick) {
-		return fmt.Sprintf("%s: Stop spamming!", cmd.User.Nick), nil
+	if u.hasTried() {
+		return fmt.Sprintf("%s: Stop spamming!", u.Nick), nil
 	}
 
 	// this call also saves the users last entry time, which is important later
-	success, msg := _scoreData.tryScore(cmd.Channel, cmd.User.Nick, t)
+	success, msg := _scoreData.tryScore(c, u, t)
 
 	// at this point, data might have changed, and should be saved
 	var delayMinutes time.Duration
@@ -239,8 +239,8 @@ func leet(cmd *bot.Cmd) (string, error) {
 		_scoreData.scheduleSave(_scoreFile, delayMinutes+1)
 	}
 
-	if !_scoreData.calcInProgress && _scoreData.get(cmd.Channel).hasPendingScores() {
-		_scoreData.scheduleCalcScore(cmd.Channel, delayMinutes)
+	if !_scoreData.calcInProgress && c.hasPendingScores() {
+		_scoreData.scheduleCalcScore(c, delayMinutes)
 	}
 
 	if success {

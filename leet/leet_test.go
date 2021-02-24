@@ -44,10 +44,10 @@ func getData() *ScoreData {
 	fmt.Println("Creating bAAAArd")
 	b := _scoreData.get(TST_CHAN).get("bAAAArd")
 
-	o.score(10)
-	t.score(8)
-	s.score(6)
-	b.score(4)
+	o.addScore(10)
+	t.addScore(8)
+	s.addScore(6)
+	b.addScore(4)
 
 	return _scoreData
 }
@@ -133,13 +133,14 @@ func TestTaxFail(t *testing.T) {
 		c.addNickForRound(k) // adds to c.tmpNicks
 	}
 
-	cname, err := c.name()
-	if nil != err {
-		t.Error(err)
+	//cname, err := c.name()
+	//if nil != err {
+	//	t.Error(err)
+	//}
+	if c.Name != TST_CHAN {
+		t.Errorf("Expected channel name %q, got %q", TST_CHAN, c.Name)
 	}
-	if cname != TST_CHAN {
-		t.Errorf("Expected channel name %q, got %q", TST_CHAN, cname)
-	}
+
 	c.randomInspect()
 }
 
@@ -206,7 +207,6 @@ func TestWinner(t *testing.T) {
 	rand.Seed(time.Now().UnixNano())
 	sd := getData()
 	c := sd.get(TST_CHAN)
-
 
 	nick := "Oddlid"
 	user := c.get(nick)
@@ -463,9 +463,10 @@ func TestRaceToFinish(t *testing.T) {
 		startingPoints := limit + (idx - 2)
 		timeAdjVal := (idx - 2) * 17
 		t.Logf("Nick: %q, starts with %d points, time adjustment: %d", nick, startingPoints, timeAdjVal)
-		c.get(nick).setScore(startingPoints)
+		u := c.get(nick)
+		u.setScore(startingPoints)
 		et := time.Now().Add(time.Duration(timeAdjVal) * time.Second)
-		success, msg := sd.tryScore(TST_CHAN, nick, et)
+		success, msg := sd.tryScore(c, u, et)
 		if success {
 			t.Logf("Bot reply: %q", msg)
 		}
@@ -565,15 +566,16 @@ func TestCalcScore(t *testing.T) {
 		startingPoints := limit + (idx - 3)
 		timeAdjVal := (idx - 2) * 17
 		t.Logf("Nick: %q, starts with %d points, time adjustment: %d", nick, startingPoints, timeAdjVal)
-		c.get(nick).setScore(startingPoints)
+		u := c.get(nick)
+		u.setScore(startingPoints)
 		et := time.Now().Add(time.Duration(timeAdjVal) * time.Second)
-		success, msg := sd.tryScore(TST_CHAN, nick, et)
+		success, msg := sd.tryScore(c, u, et)
 		if success {
 			t.Logf("Bot reply: %q", msg)
 		}
 	}
 
-	t.Logf("\n%s", sd.calcScore(TST_CHAN))
+	t.Logf("\n%s", sd.calcScore(c))
 
 }
 
@@ -720,7 +722,6 @@ func BenchmarkGetWinnerRankCached(b *testing.B) {
 	}
 	intVar = rank
 }
-
 
 /*
 2021-02-23:
@@ -892,7 +893,7 @@ func BenchmarkTryScore(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		for _, n := range nicks {
-			bres, sres = sd.tryScore(channel, n.nick, n.ts)
+			bres, sres = sd.tryScore(c, c.get(n.nick), n.ts)
 		}
 		//c.MergeScoresForRound(c.GetScoresForRound())
 		c.clearNicksForRound()
@@ -921,17 +922,17 @@ func BenchmarkTimeFrame(b *testing.B) {
 	tcVar = result
 }
 
-func BenchmarkDidTry(b *testing.B) {
-	sd := newScoreData()
-	nick := "Odd"
-	channel := "#channel"
-	var result bool
-
-	for i := 0; i < b.N; i++ {
-		result = sd.didTry(channel, nick)
-	}
-	boolVar = result
-}
+//func BenchmarkDidTry(b *testing.B) {
+//	sd := newScoreData()
+//	nick := "Odd"
+//	channel := "#channel"
+//	var result bool
+//
+//	for i := 0; i < b.N; i++ {
+//		result = sd.didTry(channel, nick)
+//	}
+//	boolVar = result
+//}
 
 func BenchmarkLeet(b *testing.B) {
 	// I'd like to see if I can mock the whole process, and see how tight posts could get

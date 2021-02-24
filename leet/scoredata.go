@@ -6,7 +6,6 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
-	"sort"
 	"strings"
 	"time"
 
@@ -35,7 +34,6 @@ func (s *ScoreData) isEmpty() bool {
 
 func (s *ScoreData) log() *logrus.Entry {
 	if nil == s.l {
-		//s.l = _log // pkg global
 		return _log
 	}
 	return s.l
@@ -105,8 +103,7 @@ func (s *ScoreData) scheduleSave(filename string, delayMinutes time.Duration) bo
 	return s.saveInProgress
 }
 
-func (s *ScoreData) calcScore(channel string) string {
-	c := s.get(channel)
+func (s *ScoreData) calcScore(c *Channel) string {
 	scoreMap := c.getScoresForRound()
 	var sb strings.Builder
 
@@ -227,90 +224,14 @@ func (s *ScoreData) calcScore(channel string) string {
 	return sb.String()
 }
 
-//func (s *ScoreData) calcAndPost(channel string) {
-//	llog := s.log().WithField("func", "calcAndPost")
-//	c := s.get(channel)
-//	scoreMap := c.getScoresForRound()
-//	c.mergeScoresForRound(scoreMap)
-//
-//	var sb strings.Builder
-//	fmt.Fprintf(&sb, "New positive scores for %s:\n", time.Now().Format("2006-01-02"))
-//	fstr := getPadStrFmt(longestEntryLen(c.tmpNicks), ": %04d [+%02d] %s\n")
-//
-//	genmsg := func(w io.Writer, nick string, total, plus int) {
-//		// The idea here is to print something extra if total points match any configured bonus value
-//		has, bc := _bonusConfigs.hasValue(total)
-//		if has {
-//			fmt.Fprintf(w, fstr, nick, total, plus, bc.Greeting)
-//		}
-//		fmt.Fprintf(w, fstr, nick, total, plus, "")
-//	}
-//
-//	for _, nick := range c.tmpNicks {
-//		genmsg(&sb, nick, c.get(nick).getScore(), scoreMap[nick])
-//	}
-//
-//	// Post results to channel
-//	err := msgChan(channel, strings.TrimRight(sb.String(), "\n")) // get rid of final, extra newline
-//	if nil != err {
-//		llog.Error(err)
-//	}
-//	sb.Reset() // clear before later use
-//
-//	// Both Tord and Snelhest agrees that check for overshoot and it's punishment should come here,
-//	// before regular taxation.
-//	// Snelhest wants a user that shoots straight and gets right on the target/limit should be excempt
-//	// from taxation afterwards. I don't agree. But, if we are to do it that way, we would need to
-//	// delete the nick from c.tmpNicks[] for it not to be included in inspection.
-//
-//	// First, get UserMap of OverShooters. This will include anyone who has hit spot on as well.
-//	// Then, if someone hit spot on, add them as a winner. If more than one, they should be added in the
-//	// order they posted, which can be derived from the user's LastEntry timestamp. We might need to copy
-//	// these over to a new slice and sort first, or something...
-//	// Then, punish overshooters.
-//	// Then, if we are to excempt those who hit the target from further taxation, delete them from c.tmpNicks.
-//	// Update: We agreed that you will NOT be excempt from tax for hitting spot on target.
-//
-//	// This is probably the best point to trigger an inspection and post the results
-//	// At any round, one contestant might be selected. But only a contestant, not someone who didn't participate this day
-//	// Selection is regular random of index between the the available ones in $scoreMap
-//	// So we let the happy news come first, and then we get mean and calculate the random victim for the day, and post
-//	// that with its updated/subtracted points value, but also if they were selected, but stayed clear.
-//	idx, tax := c.randomInspect() // most times we get -1 here and skip the rest
-//	if idx > -1 {
-//		nick := c.tmpNicks[idx]
-//		user := c.get(nick)
-//		if tax > 0 {
-//			user.addScore(-tax)
-//			fmt.Fprintf(
-//				&sb,
-//				"%s was randomly selected for taxation and lost %d points (now: %d points)",
-//				nick,
-//				tax,
-//				user.getScore(),
-//			)
-//		} else {
-//			fmt.Fprintf(&sb, "%s was randomly selected for taxation, but got off with a slap on the wrist ;)", nick)
-//		}
-//		err = msgChan(channel, sb.String())
-//		if nil != err {
-//			llog.Error(err)
-//		}
-//	}
-//
-//	// At this point, if we do NOT excempt winners from being taxated and it was a winner who got tax, we need to
-//	// delete that user from c.Ratings, as it's not below the target again.
-//
-//	c.clearNicksForRound() // clean up, before next round
-//}
 
-func (s *ScoreData) scheduleCalcScore(channel string, delayMinutes time.Duration) bool {
+func (s *ScoreData) scheduleCalcScore(c *Channel, delayMinutes time.Duration) bool {
 	if s.calcInProgress {
 		return false
 	}
 	s.calcInProgress = true
 	time.AfterFunc(delayMinutes*time.Minute, func() {
-		err := msgChan(channel, strings.TrimRight(s.calcScore(channel), "\n"))
+		err := msgChan(c.Name, strings.TrimRight(s.calcScore(c), "\n"))
 		if nil != err {
 			s.log().WithField("func", "scheduleCalcScore").Error(err)
 		}
@@ -333,28 +254,12 @@ func (s *ScoreData) get(channel string) *Channel {
 	return c
 }
 
-func (s *ScoreData) rank(channel string) (KVList, error) {
-	c := s.get(channel)
-	if len(c.Users) == 0 {
-		return nil, fmt.Errorf("ScoreData.rank(): No users with scores for channel %q", channel)
-	}
-	kvl := make(KVList, len(c.Users))
-	i := 0
-	for k, v := range c.Users {
-		kvl[i] = KV{k, v.Points}
-		i++
-	}
-	sort.Sort(sort.Reverse(kvl))
-	return kvl, nil
-}
-
 func (s *ScoreData) stats(channel string) string {
 	c := s.get(channel)
-	kvl, err := s.rank(channel)
-	if err != nil {
-		return err.Error()
-	}
 	var sb strings.Builder
+
+	// This replaces the old func rank() that used KV/KVList
+	us := c.Users.toSlice().sortByPointsDesc()
 
 	// Since no changes to winner rank should happen during this method,
 	// we pre-cache the list of winners here, and reimplement the functionality
@@ -377,27 +282,24 @@ func (s *ScoreData) stats(channel string) string {
 		fmt.Fprintf(w, " - Winner #%d!", ws.getIndex(user.Nick)+1)
 	}
 
-	fstr := getPadStrFmt(kvl.LongestKey(), ": %04d @ %s")
+	fstr := getPadStrFmt(c.Users.longestNickLen(), ": %04d @ %s")
 
 	fmt.Fprintf(&sb, "Stats since %s:\n", s.BotStart.Format(time.RFC3339))
 
-	for _, kv := range kvl {
-		u := c.get(kv.Key)
-		fmt.Fprintf(&sb, fstr, kv.Key, kv.Val, u.getLongDate())
+	// It should be safe to access fields in user struct directly here without calling the methods
+	// that lock, since we have guards otherwise that should prevent this method to be run in
+	// parallell with anything.
+	for _, u := range us {
+		fmt.Fprintf(&sb, fstr, u.Nick, u.Points, u.getLongDate())
 		winner(&sb, u)
-		greeting(&sb, kv.Val)
+		greeting(&sb, u.Points)
 		fmt.Fprintf(&sb, "\n")
 	}
 
 	return sb.String()
 }
 
-func (s *ScoreData) didTry(channel, nick string) bool {
-	return s.get(channel).get(nick).hasTried()
-}
-
-func (s *ScoreData) tryScore(channel, nick string, t time.Time) (bool, string) {
-	c := s.get(channel)
+func (s *ScoreData) tryScore(c *Channel, u *User, t time.Time) (bool, string) {
 	points, tf := getScoreForEntry(t) // -1 or 0
 
 	// No points, not even minus if you're outside the timeframe
@@ -409,11 +311,17 @@ func (s *ScoreData) tryScore(channel, nick string, t time.Time) (bool, string) {
 
 	brs := _bonusConfigs.calc(fmt.Sprintf("%02d%09d", t.Second(), t.Nanosecond()))
 	bonusPoints := brs.TotalBonus()
-	user := c.get(nick)
-	user.setLastEntry(t) // important to save last entry time for later
-	_, userTotal := user.score(points + bonusPoints)
 
-	missTmpl := fmt.Sprintf("%s Too %s, sucker! %s: %d", ts, "%s", nick, userTotal)
+	didTry, userTotal := u.score(points + bonusPoints, t)
+	if didTry {
+		s.log().WithFields(logrus.Fields{
+			"func":   "tryScore",
+			"didTry": didTry,
+		}).Error("It should not be possible to reach this branch")
+		return true, fmt.Sprintf("%s: Stop spamming!", u.Nick)
+	}
+
+	missTmpl := fmt.Sprintf("%s Too %s, sucker! %s: %d", ts, "%s", u.Nick, userTotal)
 	if bonusPoints > 0 {
 		missTmpl += fmt.Sprintf(" (but: %s)", brs)
 	}
@@ -424,9 +332,9 @@ func (s *ScoreData) tryScore(channel, nick string, t time.Time) (bool, string) {
 		return true, fmt.Sprintf(missTmpl, "late")
 	}
 
-	rank := c.addNickForRound(nick) // how many points is calculated from how many times this is called, later on
+	rank := c.addNickForRound(u.Nick) // how many points is calculated from how many times this is called, later on
 
-	ret := fmt.Sprintf("%s Whoop! %s: #%d", ts, nick, rank)
+	ret := fmt.Sprintf("%s Whoop! %s: #%d", ts, u.Nick, rank)
 	if bonusPoints > 0 {
 		ret = fmt.Sprintf("%s (%s)", ret, brs)
 	}

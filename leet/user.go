@@ -18,6 +18,7 @@ type User struct {
 	Nick      string    `json:"nick"`       // duplicate of map key, but we need to have it here as well sometimes
 	Points    int       `json:"score"`      // current points total
 	LastEntry time.Time `json:"last_entry"` // time of last !1337 post that resulted in a score, positive or negative
+	BestEntry time.Time `json:"best_entry"` // tighhtest to 1337, or whatever...
 	Locked    bool      `json:"locked"`     // true if the user has reached the target limit
 	didTry    bool
 	l         *logrus.Entry
@@ -185,4 +186,146 @@ func (u *User) isLocked() bool {
 	u.RLock()
 	defer u.RUnlock()
 	return u.Locked
+}
+
+// Helper functions for comparing times. We can't use time.(Defore|After), since
+// we only want to compare the time part, not the date
+func IsBefore(t1, t2 time.Time) bool {
+	if t1.Minute() < t2.Minute() {
+		return true
+	}
+	if t1.Minute() == t2.Minute() {
+		if t1.Second() < t2.Second() {
+			return true
+		}
+		if t1.Second() == t2.Second() {
+			if t1.Nanosecond() < t2.Nanosecond() {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func IsAfter(t1, t2 time.Time) bool {
+	if t1.Minute() > t2.Minute() {
+		return true
+	}
+	if t1.Minute() == t2.Minute() {
+		if t1.Second() > t2.Second() {
+			return true
+		}
+		if t1.Second() == t2.Second() {
+			if t1.Nanosecond() > t2.Nanosecond() {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func (u *User) setBestEntryWithLock(when time.Time) {
+	u.Lock()
+	u.BestEntry = when
+	u.Unlock()
+}
+
+// setBestEntry() will set BestEntry for the user, if given time is closer to target
+// time than previously stored time value
+func (u *User) setBestEntry(when time.Time) {
+	llog := u.log().WithFields(logrus.Fields{
+		"func":     "setBestEntry",
+		"oldEntry": u.BestEntry,
+		"newEntry": when,
+	})
+	// If no previous value, we just don't care and set what we get
+	if u.BestEntry.IsZero() {
+		llog.Debug("No previous value, accepting anything")
+		u.setBestEntryWithLock(when)
+		return
+	}
+	// ...
+	within, newTimeCode := withinTimeFrame(when)
+	if !within {
+		llog.WithField("newTimeCode", newTimeCode).Debug("Outside timeframe")
+		return
+	}
+	// Now comes the cumbersome part...
+	// If we're here, it means we're within +-1 minute of the target (13:37)
+
+	// Note to self:
+	// We don't need to compare a time that is late to a time that is early, as the early
+	// time will (almost) always be closer to target than a late time, since a time after will
+	// always be at least a minute off, while a time before is at most a minute off.
+	// That is:
+	// Late = at least 60+ seconds after
+	// Early = at most 59- seconds before
+
+	oldTimeCode := timeFrame(u.BestEntry)
+
+	if TF_BEFORE == oldTimeCode || TF_EARLY == oldTimeCode {
+		if TF_BEFORE == newTimeCode || TF_EARLY == newTimeCode {
+			if IsAfter(when, u.BestEntry) {
+				llog.Debug("Both times are before, but new time is better - setting time")
+				u.setBestEntryWithLock(when)
+				return
+			}
+			llog.Debug("Both times are before, but old one is better - skipping")
+			return
+		}
+		if TF_ONTIME == newTimeCode {
+			llog.Debug("Old time is before, new time is on time - setting time")
+			u.setBestEntryWithLock(when)
+			return
+		}
+		if TF_LATE == newTimeCode || TF_AFTER == newTimeCode {
+			llog.Debug("Old time is before, new time is after - skipping")
+			return
+		}
+		llog.Debug("Old time is before, new time unchecked")
+		return
+	}
+
+
+	if TF_ONTIME == oldTimeCode {
+		if TF_BEFORE == newTimeCode || TF_EARLY == newTimeCode {
+			llog.Debug("Old time on time, but new is before - skipping")
+			return
+		}
+		if TF_LATE == newTimeCode || TF_AFTER == newTimeCode {
+			llog.Debug("Old time on time, but new time after - skipping")
+			return
+		}
+		if IsBefore(when, u.BestEntry) {
+			llog.Debug("Both times on time, but new one is better - setting time")
+			u.setBestEntryWithLock(when)
+			return
+		}
+		llog.Debug("Both times on time, but old one is better - skipping")
+		return
+	}
+
+	if (TF_LATE == oldTimeCode || TF_AFTER == oldTimeCode) {
+		if TF_BEFORE == newTimeCode || TF_EARLY == newTimeCode {
+			// Most likely, an early time will be closer to the target than a
+			// late time
+			llog.Debug("Old time is after, new time before - setting time")
+			u.setBestEntryWithLock(when)
+			return
+		}
+		if TF_ONTIME == newTimeCode {
+			llog.Debug("Old time is after, new time is on time - setting time")
+			u.setBestEntryWithLock(when)
+			return
+		}
+		if IsBefore(when, u.BestEntry) {
+			llog.Debug("Both times are after, but new time is better - setting time")
+			u.setBestEntryWithLock(when)
+			return
+		}
+		llog.Debug("Both times are after, but old one is better - skipping")
+		return
+	}
+
+	llog.Debug("Should not get here")
 }

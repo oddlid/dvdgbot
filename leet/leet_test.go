@@ -594,6 +594,36 @@ func TestCalcScore(t *testing.T) {
 
 }
 
+func TestSetBestEntry(t *testing.T) {
+	log.SetLevel(log.DebugLevel)
+	rand.Seed(time.Now().UnixNano())
+	sd := getData()
+	c := sd.get(TST_CHAN)
+
+	user := c.get("Oddlid")
+
+	oldTime := time.Now().Add(-(2 * time.Minute))
+	newTime := oldTime.Add(-(1 * time.Second))
+
+	user.setLastEntry(oldTime)
+
+	user.setBestEntry(newTime)
+
+	for i := 1; i < 120; i++ {
+		newTime = newTime.Add(time.Duration(i) * time.Second)
+		user.setBestEntry(newTime)
+	}
+}
+
+//func TestCompareTimes(t *testing.T) {
+//	log.SetLevel(log.DebugLevel)
+//	rand.Seed(time.Now().UnixNano())
+//	sd := getData()
+//	c := sd.get(TST_CHAN)
+//
+//	t.Log("Under construction")
+//}
+
 func TestBonusConfigCalc(t *testing.T) {
 	var bcs BonusConfigs
 	stamps := []string{

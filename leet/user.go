@@ -140,6 +140,7 @@ func (u *User) score(points int, when time.Time) (bool, int) {
 	}
 	u.try(true)
 	u.setLastEntry(when)
+	go u.setBestEntry(when) // run in goroutine in order to not take time from others scoring
 	// Reset didTry after 2 minutes
 	// This should create a "loophole" so that if a user posts too early and gets -1,
 	// they could manage to get another -1 by being too late as well :D
@@ -250,7 +251,7 @@ func (u *User) setBestEntry(when time.Time) {
 		llog.WithField("newTimeCode", newTimeCode).Debug("Outside timeframe")
 		return
 	}
-	// Now comes the cumbersome part...
+
 	// If we're here, it means we're within +-1 minute of the target (13:37)
 
 	// Note to self:
@@ -261,10 +262,15 @@ func (u *User) setBestEntry(when time.Time) {
 	// Late = at least 60+ seconds after
 	// Early = at most 59- seconds before
 
+	// We don't need to check newTimeCode for TF_BEFORE or TF_AFTER, since that would be outside
+	// timeframe, and so the check above returns if that's the case.
+	// We still check oldTimeCode for every variant though, as it could have been set to anything
+	// the first time this func is called, when the previous value is empty.
+
 	oldTimeCode := timeFrame(u.BestEntry)
 
 	if TF_BEFORE == oldTimeCode || TF_EARLY == oldTimeCode {
-		if TF_BEFORE == newTimeCode || TF_EARLY == newTimeCode {
+		if TF_EARLY == newTimeCode {
 			if IsAfter(when, u.BestEntry) {
 				llog.Debug("Both times are before, but new time is better - setting time")
 				u.setBestEntryWithLock(when)
@@ -278,7 +284,7 @@ func (u *User) setBestEntry(when time.Time) {
 			u.setBestEntryWithLock(when)
 			return
 		}
-		if TF_LATE == newTimeCode || TF_AFTER == newTimeCode {
+		if TF_LATE == newTimeCode {
 			llog.Debug("Old time is before, new time is after - skipping")
 			return
 		}
@@ -288,11 +294,11 @@ func (u *User) setBestEntry(when time.Time) {
 
 
 	if TF_ONTIME == oldTimeCode {
-		if TF_BEFORE == newTimeCode || TF_EARLY == newTimeCode {
+		if TF_EARLY == newTimeCode {
 			llog.Debug("Old time on time, but new is before - skipping")
 			return
 		}
-		if TF_LATE == newTimeCode || TF_AFTER == newTimeCode {
+		if TF_LATE == newTimeCode {
 			llog.Debug("Old time on time, but new time after - skipping")
 			return
 		}
@@ -306,7 +312,7 @@ func (u *User) setBestEntry(when time.Time) {
 	}
 
 	if (TF_LATE == oldTimeCode || TF_AFTER == oldTimeCode) {
-		if TF_BEFORE == newTimeCode || TF_EARLY == newTimeCode {
+		if TF_EARLY == newTimeCode {
 			// Most likely, an early time will be closer to the target than a
 			// late time
 			llog.Debug("Old time is after, new time before - setting time")

@@ -609,7 +609,7 @@ func TestSetBestEntry(t *testing.T) {
 
 	user.setBestEntry(newTime)
 
-	for i := 1; i < 120; i++ {
+	for i := 1; i < 30; i++ {
 		newTime = newTime.Add(time.Duration(i) * time.Second)
 		user.setBestEntry(newTime)
 	}

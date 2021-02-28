@@ -237,7 +237,7 @@ func TestWinner(t *testing.T) {
 			nick,
 			rank+1,
 			getTargetScore(),
-			user.getLongDate(),
+			getLongDate(user.getLastEntry()),
 			timexString(timexDiff(sd.BotStart, user.getLastEntry())),
 		)
 	} else {
@@ -546,7 +546,7 @@ func TestRaceToFinish(t *testing.T) {
 
 	t.Log("\nWinners:")
 	for idx, user := range ws {
-		t.Logf("%-10s: %d #%d [%s]", user.Nick, user.getScore(), idx+1, user.getShortTime())
+		t.Logf("%-10s: %d #%d [%s]", user.Nick, user.getScore(), idx+1, getShortTime(user.getLastEntry()))
 	}
 
 	// clean up

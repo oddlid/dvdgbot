@@ -162,20 +162,20 @@ func (u *User) setLastEntry(when time.Time) {
 	u.Unlock()
 }
 
-func (u *User) getShortTime() string {
-	// use 0's to get subsecond value padded,
-	// use 9's to get trailing 0's removed.
-	// I don't know yet why, but when running tests on my mac,
-	// I always get the last 3 digits as 0 when using padding,
-	// although they're never 0 when calling t.Nanoseconds()
-	// other places in the code.
-	// TODO: Try to get full precision here
-	return u.getLastEntry().Format("15:04:05.000000000")
-}
+//func (u *User) getShortTime() string {
+//	// use 0's to get subsecond value padded,
+//	// use 9's to get trailing 0's removed.
+//	// I don't know yet why, but when running tests on my mac,
+//	// I always get the last 3 digits as 0 when using padding,
+//	// although they're never 0 when calling t.Nanoseconds()
+//	// other places in the code.
+//	// TODO: Try to get full precision here
+//	return u.getLastEntry().Format("15:04:05.000000000")
+//}
 
-func (u *User) getLongDate() string {
-	return u.getLastEntry().Format("2006-01-02 15:04:05.000000000")
-}
+//func (u *User) getLongDate() string {
+//	return u.getLastEntry().Format("2006-01-02 15:04:05.000000000")
+//}
 
 func (u *User) setLocked(locked bool) {
 	u.Lock()
@@ -223,6 +223,12 @@ func IsAfter(t1, t2 time.Time) bool {
 		}
 	}
 	return false
+}
+
+func (u *User) getBestEntry() time.Time {
+	u.RLock()
+	defer u.RUnlock()
+	return u.BestEntry
 }
 
 func (u *User) setBestEntryWithLock(when time.Time) {

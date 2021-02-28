@@ -282,7 +282,7 @@ func (s *ScoreData) stats(channel string) string {
 		fmt.Fprintf(w, " - Winner #%d!", ws.getIndex(user.Nick)+1)
 	}
 
-	fstr := getPadStrFmt(c.Users.longestNickLen(), ": %04d @ %s")
+	fstr := getPadStrFmt(c.Users.longestNickLen(), ": %04d @ %s Best: %s")
 
 	fmt.Fprintf(&sb, "Stats since %s:\n", s.BotStart.Format(time.RFC3339))
 
@@ -290,7 +290,7 @@ func (s *ScoreData) stats(channel string) string {
 	// that lock, since we have guards otherwise that should prevent this method to be run in
 	// parallell with anything.
 	for _, u := range us {
-		fmt.Fprintf(&sb, fstr, u.Nick, u.Points, u.getLongDate())
+		fmt.Fprintf(&sb, fstr, u.Nick, u.Points, getLongDate(u.getLastEntry()), getLongDate(u.getBestEntry()))
 		winner(&sb, u)
 		greeting(&sb, u.Points)
 		fmt.Fprintf(&sb, "\n")

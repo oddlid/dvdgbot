@@ -91,6 +91,21 @@ func inStrSlice(slc []string, val string) (int, bool) {
 	return -1, false
 }
 
+func getLongDate(t time.Time) string {
+	// use 0's to get subsecond value padded,
+	// use 9's to get trailing 0's removed.
+	// I don't know yet why, but when running tests on my mac,
+	// I always get the last 3 digits as 0 when using padding,
+	// although they're never 0 when calling t.Nanoseconds()
+	// other places in the code.
+	// TODO: Try to get full precision here
+	return t.Format("2006-01-02 15:04:05.000000000")
+}
+
+func getShortTime(t time.Time) string {
+	return t.Format("15:04:05.000000000")
+}
+
 //func hasKey(m map[string]interface{}, key string) bool {
 //	_, found := m[key]
 //	return found
@@ -212,7 +227,7 @@ func leet(cmd *bot.Cmd) (string, error) {
 			u.Nick,
 			c.getWinnerRank(u.Nick),
 			u.getScore(),
-			u.getLongDate(),
+			getLongDate(u.getLastEntry()),
 			timexString(timexDiff(_scoreData.BotStart, u.getLastEntry())),
 		), nil
 	}

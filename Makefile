@@ -13,11 +13,11 @@ endif
 .DEFAULT_GOAL: $(BINARY)
 
 $(BINARY): $(SOURCES) $(DEPS)
-	env GO111MODULE=off CGO_ENABLED=0 go build ${LDFLAGS} -o $@ .
+	env CGO_ENABLED=0 go build ${LDFLAGS} -o $@ .
 
 .PHONY: install
 install:
-	env GO111MODULE=off CGO_ENABLED=0 go install ${LDFLAGS} ./...
+	env CGO_ENABLED=0 go install ${LDFLAGS} ./...
 
 .PHONY: clean
 clean:

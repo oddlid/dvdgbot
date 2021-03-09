@@ -259,17 +259,47 @@ func (c *Channel) getMaxRoundTax() float64 {
 	return maxTax
 }
 
+// 2021-03-09 22:14
+// We need getters and setters for InspectAlways, as when running tests with ./... they fail because
+// of concurrent access to this setting.
+// Update: Seems that wasn't the culprit after all. It was forgetting to call c.cleaNicksForRound()...
+// But anyways, this is better anyways, so keeping it.
+
+func (c *Channel) setInspectAlways(doInspect bool) {
+	c.Lock()
+	c.InspectAlways = doInspect
+	c.Unlock()
+}
+
+func (c *Channel) getInspectAlways() bool {
+	c.RLock()
+	defer c.RUnlock()
+	return c.InspectAlways
+}
+
+func (c *Channel) setTaxLoners(doTax bool) {
+	c.Lock()
+	c.TaxLoners = doTax
+	c.Unlock()
+}
+
+func (c *Channel) getTaxLoners() bool {
+	c.RLock()
+	defer c.RUnlock()
+	return c.TaxLoners
+}
+
 func (c *Channel) shouldInspect() bool {
 	llog := c.log().WithFields(logrus.Fields{
 		"func": "shouldInspect",
 	})
 	// Having this check before the next will override TaxLoners
-	if c.InspectAlways {
+	if c.getInspectAlways() {
 		llog.Debug("Configured to always run inspection")
 		return true
 	}
 	// We could have something like this to only tax when more than 1 contestant
-	if nil == c.tmpNicks || (!c.TaxLoners && len(c.tmpNicks) < 2) {
+	if nil == c.tmpNicks || (!c.getTaxLoners() && len(c.tmpNicks) < 2) {
 		llog.Debug("Configured to NOT tax loners")
 		return false
 	}

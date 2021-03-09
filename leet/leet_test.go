@@ -113,22 +113,23 @@ func TestInspectLoner(t *testing.T) {
 	c.InspectionTax = 100.0 // % of total points for the user with the least points in the current round
 	rand.Seed(time.Now().UnixNano())
 	nick := "Oddlid"
+	c.clearNicksForRound() // forgetting this made tests fail when running with ./...
 	c.addNickForRound(nick)
 
-	c.InspectAlways = true
+	c.setInspectAlways(true)
 	if !c.shouldInspect() {
 		t.Errorf("Set to always inspect, but shouldInspect() returned false anyhow")
 	}
 
-	c.InspectAlways = false
-	c.TaxLoners = false
+	c.setInspectAlways(false)
+	c.setTaxLoners(false)
 	for i := 0; i < 10; i++ {
 		if c.shouldInspect() {
-			t.Errorf("Set to not inspect loners, but did so anyway")
+			t.Errorf("Set to not inspect loners, but did so anyway. len(c.tmpNicks) = %d", len(c.tmpNicks))
 		}
 	}
 
-	c.TaxLoners = true
+	c.setTaxLoners(true)
 	llog := c.get(nick).log()
 	for i := 0; i < 10; i++ {
 		llog.WithFields(log.Fields{

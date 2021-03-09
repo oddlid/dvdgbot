@@ -710,6 +710,10 @@ func TestBonusConfigCalc(t *testing.T) {
 
 }
 
+//func TestNtp(t *testing.T) {
+//	checkNtp("0.se.pool.ntp.org")
+//}
+
 // We should bench both calling the method repeatedly and also implementing
 // the same locally so we have cached values, so we can see how much waste
 // it is to call that method to get only one rank.

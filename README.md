@@ -24,7 +24,7 @@ It currently has some submodules that can be enabled/disabled by imports in main
 	  }`
 - *larsmonsen*:
   * Based on https://github.com/go-chat-bot/plugins/chucknorris but has text from larsmonsenfacts.com
-  * Text is saved in a separate JSON file, shuffeled and rotated by the `quoteshuffle`module.
+  * Text is saved in a separate JSON file, shuffled and rotated by the `quoteshuffle`module.
   * Triggered by the words "lars" or "monsen" (case insensitive) anywhere in a channel message.
 - *timestamp*:
   * Just prepends a detailed timestamp to a message.

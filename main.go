@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	//stdLog "log"
 	"os"
 	"time"
 
@@ -14,7 +13,6 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
 	//"github.com/oddlid/dvdgbot/userwatch"
-	//_ "github.com/go-chat-bot/plugins/chucknorris"
 )
 
 const (

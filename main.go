@@ -15,7 +15,6 @@ import (
 	"github.com/urfave/cli"
 	//"github.com/oddlid/dvdgbot/userwatch"
 	//_ "github.com/go-chat-bot/plugins/chucknorris"
-	//_ "github.com/oddlid/dvdgbot/goodmorning"
 )
 
 const (

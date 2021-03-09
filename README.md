@@ -1,27 +1,39 @@
-2018-03-07:
+# dvdgbot
 
-bajsbot - Just making a stupid irc bot for fun
+This is my personal playground for IRC bot stuff in Go.
+It will probably not be directly usable for others, but one might find bits and pieces that can be modified and reused.
 
-Currently it has a module for Lars Monsen quotes, based on the Chuck Norris module,
-and a "leet" module I wrote from scratch.
+It currently has some submodules that can be enabled/disabled by imports in main.go:
 
-The leet module will react to the commands "!1337" and "!1337 stats".
-
-"!1337" will give the nick that enters it 1 point if the time is within 13:37 (you can change the hour and minute with env vars $LEETBOT_HOUR and $LEETBOT_MINUTE). 
-If the nick is the first in the channel that day to enter !1337, the nick is awarded 2 points.
-If the nick enters !1337 within one minute too early or too late, the nick gets -1 points.
-Entering !1337 outside the specified time +- 1 minute, will not do anything.
-
-"!1337 stats" will print the scoreboard since the bot was started. Stats are only kept in memory, and not saved between runs.
-"!1337 stats" will work at any given time of day.
-
-See "./bajsbot.bin -h" for options you can give at startup, such as specifying server, channels, user, nick, etc.
-
-2019-04-07:
-
-Updates:
-- Stats are saved in "/tmp/leetbot_scores.json"
-- In addition to "stats", there is now also argument "reload", that will reload stats from the disk file, in case one has edited it by hand.
-- The point system is much updated:
-  * There's a bonus system for substring matches of "1337" (or whatever hour and minute is given). See code for details.
-  * Top score when posting on time is dependant on how many participants that day. See ranking system in code for details.
+- *leet*:
+  * This is the main motivation for the whole bot. It's a game.
+  * Triggered by: `!1337 [stats|reload]`
+  * See separate documentation.
+- *quoteshuffle*:
+  * Takes a JSON file with quotes (or whatever strings), and returns a random quote from the list.
+  * To avoid often getting the same quotes, it will move the returned quote from the `src` array to the `dst`array, and when the `src` array is empty, all quotes are moved back to the `src` array from the `dst`array. This way, you won't see the same quote again until all others have been shown.
+  * JSON format:
+      {
+		"src": [
+			"quote one",
+			"quote two",
+			"..."
+		],
+		"dst": [
+		]
+	  }
+- *larsmonsen*:
+  * Based on https://github.com/go-chat-bot/plugins/chucknorris but has text from larsmonsenfacts.com
+  * Text is saved in a separate JSON file, shuffeled and rotated by the `quoteshuffle`module.
+  * Triggered by the words "lars" or "monsen" (case insensitive) anywhere in a channel message.
+- *timestamp*:
+  * Just prepends a detailed timestamp to a message.
+  * Triggered by the prefix command `!ts`
+- *tool*:
+  * This is just a helper for Makefile, to make it easier to get the same date format both on Linux/OSX/Windows. Not used by the bot itself.
+- *userwatch*:
+  * Lets you add welcome/bye messages for given nicks for JOIN/PART/QUIT.
+  * See separate documentation.
+- *xkcdbot*:
+  * Returns the image URL for an XKCD comic.
+  * Triggered by: `!xkcd get <ID>|latest`

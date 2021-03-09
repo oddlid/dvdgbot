@@ -1,1 +1,1 @@
-LEETBOT_HOUR=$(date +"%H") LEETBOT_MINUTE=$(date +"%M") LEETBOT_SCOREFILE=$(readlinkf ../cfg/leetbot_scores_copy.json) LEETBOT_BONUSCONFIGFILE=$(readlinkf ../cfg/leetbot_bonusconfigs.json) GO111MODULE=off go test -v $@
+LEETBOT_HOUR=$(date +"%H") LEETBOT_MINUTE=$(date +"%M") LEETBOT_SCOREFILE=$(readlinkf ../cfg/leetbot_scores_copy.json) LEETBOT_BONUSCONFIGFILE=$(readlinkf ../cfg/leetbot_bonusconfigs.json) go test -v $@

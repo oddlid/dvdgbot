@@ -20,6 +20,7 @@ type User struct {
 	LastEntry time.Time `json:"last_entry"` // time of last !1337 post that resulted in a score, positive or negative
 	BestEntry time.Time `json:"best_entry"` // tighhtest to 1337, or whatever...
 	Locked    bool      `json:"locked"`     // true if the user has reached the target limit
+	TotalTax  int       `json:"total_tax"`  // how much tax total over time
 	didTry    bool
 	l         *logrus.Entry
 }
@@ -340,4 +341,16 @@ func (u *User) setBestEntry(when time.Time) {
 	}
 
 	llog.Debug("Should not get here")
+}
+
+func (u *User) getTotalTax() int {
+	u.RLock()
+	defer u.RUnlock()
+	return u.TotalTax
+}
+
+func (u *User) addTax(tax int) {
+	u.Lock()
+	u.TotalTax += tax
+	u.Unlock()
 }

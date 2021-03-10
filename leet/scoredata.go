@@ -189,9 +189,11 @@ func (s *ScoreData) calcScore(c *Channel) string {
 		// We now need to update the users points before we can get a greeting or mark as a winner
 		if overshootTax > 0 {
 			u.addScore(-overshootTax) // apply overshoot tax
+			u.addTax(overshootTax)
 		}
 		if taxDeduction > 0 {
 			u.addScore(-taxDeduction) // apply random tax
+			u.addTax(taxDeduction)
 		}
 		// If the user is now at at total that matches target score, it needs to be marked as a winner, before we move on
 		if getTargetScore() == u.getScore() {
@@ -282,7 +284,7 @@ func (s *ScoreData) stats(channel string) string {
 		fmt.Fprintf(w, " - Winner #%d!", ws.getIndex(user.Nick)+1)
 	}
 
-	fstr := getPadStrFmt(c.Users.longestNickLen(), ": %04d @ %s Best: %s")
+	fstr := getPadStrFmt(c.Users.longestNickLen(), ": %04d @ %s Best: %s Tax: -%04d")
 
 	fmt.Fprintf(&sb, "Stats since %s:\n", s.BotStart.Format(time.RFC3339))
 
@@ -290,7 +292,7 @@ func (s *ScoreData) stats(channel string) string {
 	// that lock, since we have guards otherwise that should prevent this method to be run in
 	// parallell with anything.
 	for _, u := range us {
-		fmt.Fprintf(&sb, fstr, u.Nick, u.Points, getLongDate(u.getLastEntry()), getLongDate(u.getBestEntry()))
+		fmt.Fprintf(&sb, fstr, u.Nick, u.Points, getLongDate(u.getLastEntry()), getLongDate(u.getBestEntry()), u.getTotalTax())
 		winner(&sb, u)
 		greeting(&sb, u.Points)
 		fmt.Fprintf(&sb, "\n")

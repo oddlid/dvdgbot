@@ -1,7 +1,7 @@
 # This Dockerfile is intended for using when you don't want to pull the repo from
 # github, and the builder image from Docker hub.
 # If you've built the binary already with Makefile, then just use this one.
-# Remember to check that your binary is either named "bajsbot.bin", or else specify
+# Remember to check that your binary is either named "dvdgbot.bin", or else specify
 # the name via ARG BUILD_BIN.
 # So, if you want your binary to be named, say "mycoolbot", then run the following:
 # $ make BINARY=mycoolbot
@@ -9,7 +9,7 @@
 
 FROM alpine:latest
 LABEL maintainer="Odd E. Ebbesen <oddebb@gmail.com>"
-ARG BUILD_BIN=bajsbot.bin
+ARG BUILD_BIN=dvdgbot.bin
 ARG BOT_USER=dvdgbot
 
 RUN addgroup -g 1000 ${BOT_USER} && adduser -u 1000 -G ${BOT_USER} -D ${BOT_USER}

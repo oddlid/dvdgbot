@@ -25,6 +25,7 @@ var (
 	COMMIT_ID  string
 	BUILD_DATE string
 	VERSION    string
+	BIN_NAME   string
 )
 
 func envDefStr(key, fallback string) string {
@@ -62,7 +63,7 @@ func entryPoint(ctx *cli.Context) error {
 
 func main() {
 	app := cli.NewApp()
-	app.Name = "bajsbot"
+	app.Name = BIN_NAME
 	app.Version = fmt.Sprintf("%s_%s (Compiled: %s)", VERSION, COMMIT_ID, BUILD_DATE)
 	app.Compiled, _ = time.Parse(time.RFC3339, BUILD_DATE)
 	app.Copyright = fmt.Sprintf("(C) 2018 - %d, Odd Eivind Ebbesen", time.Now().Year())

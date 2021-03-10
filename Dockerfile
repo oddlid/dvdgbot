@@ -1,4 +1,4 @@
-ARG BUILD_BIN=bajsbot.bin
+ARG BUILD_BIN=dvdgbot.bin
 ARG BOT_USER=dvdgbot
 
 FROM golang:1.16-buster AS builder

@@ -1,0 +1,32 @@
+# This Dockerfile is intended for using when you don't want to pull the repo from
+# github, and the builder image from Docker hub.
+# If you've built the binary already with Makefile, then just use this one.
+# Remember to check that your binary is either named "bajsbot.bin", or else specify
+# the name via ARG BUILD_BIN.
+# So, if you want your binary to be named, say "mycoolbot", then run the following:
+# $ make BINARY=mycoolbot
+# $ docker build -t <repo>/<image_name>:<tag> --build-arg BUILD_BIN=mycoolbot -f Dockerfile.local .
+
+FROM alpine:latest
+LABEL maintainer="Odd E. Ebbesen <oddebb@gmail.com>"
+ARG BUILD_BIN=bajsbot.bin
+ARG BOT_USER=dvdgbot
+
+RUN addgroup -g 1000 ${BOT_USER} && adduser -u 1000 -G ${BOT_USER} -D ${BOT_USER}
+
+RUN apk add --no-cache --update \
+		ca-certificates \
+		tini \
+		&& \
+		rm -rf /var/cache/apk/*
+
+COPY ${BUILD_BIN} /usr/local/bin/
+RUN chown ${BOT_USER}:${BOT_USER} /usr/local/bin/${BUILD_BIN} && chmod 755 /usr/local/bin/${BUILD_BIN}
+
+USER ${BOT_USER}
+# We need to copy the ARG into ENV, as the shell context in CMD cannot access ARG
+ENV BOT_BIN=${BUILD_BIN}
+ENTRYPOINT ["tini", "-g", "--"]
+# Using the shell format of CMD is most useful here, as variable expansion then works as intended
+CMD ${BOT_BIN} -h
+

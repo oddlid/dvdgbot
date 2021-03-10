@@ -13,7 +13,8 @@ It currently has some submodules that can be enabled/disabled by imports in main
   * Takes a JSON file with quotes (or whatever strings), and returns a random quote from the list.
   * To avoid often getting the same quotes, it will move the returned quote from the `src` array to the `dst`array, and when the `src` array is empty, all quotes are moved back to the `src` array from the `dst`array. This way, you won't see the same quote again until all others have been shown.
   * JSON format:
-      `{
+      `
+      {
 		"src": [
 			"quote one",
 			"quote two",
@@ -21,7 +22,8 @@ It currently has some submodules that can be enabled/disabled by imports in main
 		],
 		"dst": [
 		]
-	  }`
+	  }
+      `
 - *larsmonsen*:
   * Based on https://github.com/go-chat-bot/plugins/chucknorris but has text from larsmonsenfacts.com
   * Text is saved in a separate JSON file, shuffled and rotated by the `quoteshuffle`module.

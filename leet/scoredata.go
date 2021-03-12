@@ -284,7 +284,10 @@ func (s *ScoreData) stats(channel string) string {
 		fmt.Fprintf(w, " - Winner #%d!", ws.getIndex(user.Nick)+1)
 	}
 
-	fstr := getPadStrFmt(c.Users.longestNickLen(), ": %04d @ %s Best: %s Tax: -%04d")
+	fstr := getPadStrFmt(
+		c.Users.longestNickLen(),
+		": %04d @ %s Best: %s Bonus: %03dx = %04d Tax: %03dx = -%04d",
+	)
 
 	fmt.Fprintf(&sb, "Stats since %s:\n", s.BotStart.Format(time.RFC3339))
 
@@ -292,7 +295,18 @@ func (s *ScoreData) stats(channel string) string {
 	// that lock, since we have guards otherwise that should prevent this method to be run in
 	// parallell with anything.
 	for _, u := range us {
-		fmt.Fprintf(&sb, fstr, u.Nick, u.Points, getLongDate(u.getLastEntry()), getLongDate(u.getBestEntry()), u.getTotalTax())
+		fmt.Fprintf(
+			&sb,
+			fstr,
+			u.Nick,
+			u.Points,
+			getLongDate(u.getLastEntry()),
+			getLongDate(u.getBestEntry()),
+			u.getBonusTimes(),
+			u.getBonusTotal(),
+			u.getTaxTimes(),
+			u.getTaxTotal(),
+		)
 		winner(&sb, u)
 		greeting(&sb, u.Points)
 		fmt.Fprintf(&sb, "\n")
@@ -325,6 +339,7 @@ func (s *ScoreData) tryScore(c *Channel, u *User, t time.Time) (bool, string) {
 
 	missTmpl := fmt.Sprintf("%s Too %s, sucker! %s: %d", ts, "%s", u.Nick, userTotal)
 	if bonusPoints > 0 {
+		u.addBonus(bonusPoints)
 		missTmpl += fmt.Sprintf(" (but: %s)", brs)
 	}
 

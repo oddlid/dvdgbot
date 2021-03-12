@@ -47,16 +47,24 @@ func entryPoint(ctx *cli.Context) error {
 		Debug:    ctx.Bool("debug"),
 	}
 
+	// If using leet, but not userwatch, do this:
 	b, _ := irc.SetUpConn(c) // ic should be second return param here if using userwatch module
 	leet.SetParentBot(b)
+
+	// Or, if using both leet and userwatch, do like this instead, and comment the above:
+	//b, ic := irc.SetUpConn(c)
 	//err := userwatch.InitBot(c, b, ic, envDefStr("USERWATCH_CFGFILE", userwatch.DEF_CFGFILE))
 	//if err != nil {
 	//	return cli.NewExitError(err.Error(), 1)
 	//}
+	//leet.SetParentBot(b)
 
-	//irc.SetUpConn(c)
 
-	irc.Run(nil) // pass nil here, as we passed c to SetUpConn
+	irc.Run(nil) // pass nil here, as we passed c to SetUpConn, so config is done
+
+	// If not using neither leet nor userwatch, you can comment out both ways to setup above,
+	// including the line with "irc.Run(nil)", and replace it with the below:
+	//irc.Run(c)
 
 	return nil
 }

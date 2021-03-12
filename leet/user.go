@@ -9,18 +9,20 @@ import (
 )
 
 
-// I want to log the tightest entry as well, since I on the first prod test @ 2021-02-24 got:
-// 2021-02-24 13:37:00.00065419 which might be one of the tightest scores ever.
-// Snelhest got: 2021-02-24 13:36:59.972826697 (miss + bonus)
-// But I'm just noting that now, and fixing bugs, before new features.
+type ScoreTracker struct {
+	Times int `json:"times"` // how many times have the user gotten a bonus or tax
+	Total int `json:"total"` // the sum of all
+}
+
 type User struct {
 	sync.RWMutex
-	Nick      string    `json:"nick"`       // duplicate of map key, but we need to have it here as well sometimes
-	Points    int       `json:"score"`      // current points total
-	LastEntry time.Time `json:"last_entry"` // time of last !1337 post that resulted in a score, positive or negative
-	BestEntry time.Time `json:"best_entry"` // tighhtest to 1337, or whatever...
-	Locked    bool      `json:"locked"`     // true if the user has reached the target limit
-	TotalTax  int       `json:"total_tax"`  // how much tax total over time
+	Nick      string       `json:"nick"`       // duplicate of map key, but we need to have it here as well sometimes
+	Points    int          `json:"score"`      // current points total
+	Locked    bool         `json:"locked"`     // true if the user has reached the target limit
+	LastEntry time.Time    `json:"last_entry"` // time of last !1337 post that resulted in a score, positive or negative
+	BestEntry time.Time    `json:"best_entry"` // tighhtest to 1337, or whatever...
+	Taxes     ScoreTracker `json:"taxes"`      // hos much tax over time
+	Bonuses   ScoreTracker `json:"bonuses"`    // how much bonuses over time
 	didTry    bool
 	l         *logrus.Entry
 }
@@ -343,14 +345,44 @@ func (u *User) setBestEntry(when time.Time) {
 	llog.Debug("Should not get here")
 }
 
-func (u *User) getTotalTax() int {
+func (u *User) getTaxTotal() int {
 	u.RLock()
 	defer u.RUnlock()
-	return u.TotalTax
+	return u.Taxes.Total
+}
+
+func (u *User) getTaxTimes() int {
+	u.RLock()
+	defer u.RUnlock()
+	return u.Taxes.Times
 }
 
 func (u *User) addTax(tax int) {
 	u.Lock()
-	u.TotalTax += tax
+	u.Taxes.Total += tax
+	if tax > 0 { // we don't want the counter to step up if tax is 0
+		u.Taxes.Times++
+	}
+	u.Unlock()
+}
+
+func (u *User) getBonusTotal() int {
+	u.RLock()
+	defer u.RUnlock()
+	return u.Bonuses.Total
+}
+
+func (u *User) getBonusTimes() int {
+	u.RLock()
+	defer u.RUnlock()
+	return u.Bonuses.Times
+}
+
+func (u *User) addBonus(bonus int) {
+	u.Lock()
+	u.Bonuses.Total += bonus
+	if bonus > 0 { // we don't want the counter to step up if bonus is 0
+		u.Bonuses.Times++
+	}
 	u.Unlock()
 }

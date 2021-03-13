@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/go-chat-bot/bot"
+	"github.com/robfig/cron/v3"
 	"github.com/sirupsen/logrus"
 )
 
@@ -43,6 +44,9 @@ var (
 	_bot             *bot.Bot
 	_bonusConfigs    BonusConfigs
 	_log             = logrus.WithField("plugin", PLUGIN) // *logrus.Entry
+	_ntpServer       string
+	_ntpOffset       time.Duration
+	_cron            *cron.Cron
 )
 
 // SetParentBot sets the internal global reference to an instance of "github.com/go-chat-bot/bot".
@@ -105,22 +109,6 @@ func getLongDate(t time.Time) string {
 func getShortTime(t time.Time) string {
 	return t.Format("15:04:05.000000000")
 }
-
-//func hasKey(m map[string]interface{}, key string) bool {
-//	_, found := m[key]
-//	return found
-//}
-
-//func longestEntryLen(s []string) int {
-//	maxlen := 0
-//	for i := range s {
-//		nlen := len(s[i])
-//		if nlen > maxlen {
-//			maxlen = nlen
-//		}
-//	}
-//	return maxlen
-//}
 
 func timeFrame(t time.Time) TimeCode {
 	th := t.Hour()
@@ -210,6 +198,13 @@ func leet(cmd *bot.Cmd) (string, error) {
 	proceed, msg := checkArgs(cmd)
 	if !proceed {
 		return strings.TrimRight(msg, "\n"), nil
+	}
+
+	// Adjust time for NTP offset, if set
+	if 0 != _ntpOffset {
+		// Tempting to add a log statement here, but seeing as slow as that is, we don't
+		// want to lose time to that in this func
+		t = t.Add(_ntpOffset)
 	}
 
 	// don't give a fuck outside accepted time frame
@@ -310,26 +305,128 @@ func getTargetScore() int {
 	return _targetScore
 }
 
+// Helper to make sure we get the right time, even when adjusting across
+// time borders
+func getCronTime(hour, minute int, adjust time.Duration) (h, m int) {
+	now := time.Now()
+	then := time.Date(
+		now.Year(),
+		now.Month(),
+		now.Day(),
+		hour,
+		minute,
+		now.Second(),
+		now.Nanosecond(),
+		now.Location(),
+	)
+	when := then.Add(adjust)
+	h = when.Hour()
+	m = when.Minute()
+	return
+}
+
+func scheduleNtpCheck(hour, minute int, server string) bool {
+	llog := _log.WithFields(logrus.Fields{
+		"func":   "scheduleNtpCheck",
+		"hour":   hour,
+		"minute": minute,
+		"server": server,
+	})
+
+	if "" == server {
+		llog.Debug("Empty server, skipping scheduling")
+		return false
+	}
+
+	if hour < 0 || hour > 23 {
+		llog.Error("Hour must be between 0 and 23")
+		return false
+	}
+
+	if minute < 0 || minute > 59 {
+		llog.Error("Minute must be between 0 and 59")
+		return false
+	}
+
+	llog.Debug("Setting up cronjob")
+	if nil == _cron {
+		_cron = cron.New()
+	}
+
+	cronSpec := fmt.Sprintf("%d %d * * *", minute, hour)
+	llog.WithField("cronSpec", cronSpec).Debug("Setting CRON SPEC")
+
+	id, err := _cron.AddFunc(
+		cronSpec,
+		func() {
+			llog.Debug("Running NTP query...")
+			offset, err := getNtpOffset(server)
+			if nil != err {
+				llog.Error(err)
+				return
+			}
+			llog.WithField("ntpOffset", offset).Debug("Updating NTP offset")
+			_ntpOffset = offset
+			// notify all channels
+			msg := fmt.Sprintf("NTP offset from %q: %+v", server, _ntpOffset)
+			for channel, _ := range _scoreData.Channels {
+				msgChan(channel, msg)
+			}
+		},
+	)
+	if nil != err {
+		llog.Error(err)
+		return false
+	}
+	llog.WithField("entryID", id).Debug("Cronjob successfully setup")
+
+	llog.Debug("Starting cron")
+	_cron.Start()
+
+	return true
+}
+
 func pickupEnv() {
 	_hour = envDefInt("LEETBOT_HOUR", DEF_HOUR)
 	_minute = envDefInt("LEETBOT_MINUTE", DEF_MINUTE)
 	_scoreFile = envDefStr("LEETBOT_SCOREFILE", SCORE_FILE)
 	_bonusConfigFile = envDefStr("LEETBOT_BONUSCONFIGFILE", BONUSCONFIGS_FILE)
+	_ntpServer = envDefStr("LEETBOT_NTP_SERVER", "") // we want empty as default if not specified here
 }
 
 func init() {
 	pickupEnv()
 
 	var err error
+	llog := _log.WithField("func", "init")
 
 	_scoreData, err = newScoreData().loadFile(_scoreFile)
 	if err != nil {
-		_log.WithError(err).Error("Error loading scoredata from file")
+		llog.WithError(err).Error("Error loading scoredata from file")
 	}
 
 	err = _bonusConfigs.loadFile(_bonusConfigFile)
 	if err != nil {
-		_log.WithError(err).Error("Error loading Bonus Configs from file")
+		llog.WithError(err).Error("Error loading Bonus Configs from file")
+	}
+
+	// This is hard to test, as I'd normally set _hour and _minute to the same time as when running tests,
+	// so if testing, comment out this temporarily, or just ignore it, as it would be 24 hours - 2 minutes
+	// until it triggers.
+	// I had an idea that one could set a variable via -X to the linker when compiling, and then just do this
+	// if the variable is set, which should prevent this from being run during tests and so on, but for now,
+	// I can live with it being like this.
+	if "" != _ntpServer {
+		llog.WithField("ntpServer", _ntpServer).Info("NTP server configured, scheduling NTP checks...")
+		h, m := getCronTime(_hour, _minute, -2*time.Minute)
+		ok := scheduleNtpCheck(h, m, _ntpServer)
+		if ok {
+			llog.Info("NTP check scheduled")
+		} else {
+			llog.Error("Error scheduling NTP check")
+		}
+	} else {
+		llog.Info("No NTP server set")
 	}
 
 	// Init rand for using in tax calculation

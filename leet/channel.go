@@ -210,13 +210,20 @@ func (c *Channel) getOverShooters(limit int) UserMap {
 }
 
 func (c *Channel) getOverShootTaxFor(limit, points int) int {
+	// Setting OvershootTax to 0 or below should disable taxation
+	if c.OvershootTax <= 0 {
+		return 0
+	}
+
 	if limit == points {
 		return 0
 	}
+
 	deduction := 0
 	for points-deduction >= limit {
 		deduction += c.OvershootTax
 	}
+
 	return deduction
 }
 

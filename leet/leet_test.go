@@ -711,9 +711,31 @@ func TestBonusConfigCalc(t *testing.T) {
 
 }
 
+func TestGetCronTime(t *testing.T) {
+	h, m := getCronTime(13, 37, -2*time.Minute)
+	if h != 13 || m != 35 {
+		t.Errorf("Expected 13 35, but got: %d %d", h, m)
+	}
+	h, m = getCronTime(12, 00, -3*time.Minute)
+	if h != 11 || m != 57 {
+		t.Errorf("Expected 11 57, but got: %d %d", h, m)
+	}
+}
+
 //func TestNtp(t *testing.T) {
 //	checkNtp("0.se.pool.ntp.org")
 //}
+
+func TestNtpCheck(t *testing.T) {
+	log.SetLevel(log.DebugLevel)
+	h, m := getCronTime(_hour, _minute, 1*time.Minute)
+	success := scheduleNtpCheck(h, m, "0.se.pool.ntp.org")
+	if success {
+		t.Log("Sleeping for 70 seconds...")
+		time.Sleep(70 * time.Second)
+		t.Logf("NTP offset after scheduled update: %+v", _ntpOffset)
+	}
+}
 
 // We should bench both calling the method repeatedly and also implementing
 // the same locally so we have cached values, so we can see how much waste

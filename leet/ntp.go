@@ -1,11 +1,11 @@
 package leet
 
-//import (
-//	"fmt"
-//	"time"
-//
-//	"github.com/beevik/ntp"
-//)
+import (
+	//"fmt"
+	"time"
+
+	"github.com/beevik/ntp"
+)
 //
 //func checkNtp(server string) {
 //	res, err := ntp.Query(server)
@@ -30,11 +30,12 @@ package leet
 //	fmt.Printf("Poll           : %+v\n", res.Poll)
 //}
 //
-//func getNtpOffset(server string) (time.Duration, error) {
-//	res, err := ntp.Query(server)
-//	if nil != err {
-//		_log.WithField("func", "getNtpOffset").Error(err)
-//		return time.Duration(0), err
-//	}
-//	return res.ClockOffset, nil
-//}
+
+func getNtpOffset(server string) (time.Duration, error) {
+	res, err := ntp.Query(server)
+	if nil != err {
+		_log.WithField("func", "getNtpOffset").Error(err)
+		return time.Duration(0), err
+	}
+	return res.ClockOffset, nil
+}

@@ -419,6 +419,7 @@ func init() {
 	// I had an idea that one could set a variable via -X to the linker when compiling, and then just do this
 	// if the variable is set, which should prevent this from being run during tests and so on, but for now,
 	// I can live with it being like this.
+	// But during testing one may also just not set env LEETBOT_NTP_SERVER, and if so, this section is ignored.
 	if "" != _ntpServer {
 		llog.WithField("ntpServer", _ntpServer).Info("NTP server configured, scheduling NTP checks...")
 		h, m := getCronTime(_hour, _minute, -2*time.Minute)

@@ -326,6 +326,9 @@ func getCronTime(hour, minute int, adjust time.Duration) (h, m int) {
 }
 
 func scheduleNtpCheck(hour, minute int, server string) bool {
+	// Since this func is called from init(), we need to use log.(Info|Error) here,
+	// as we haven't yet reached the point where log.DebugLevel is set.
+
 	llog := _log.WithFields(logrus.Fields{
 		"func":   "scheduleNtpCheck",
 		"hour":   hour,
@@ -334,7 +337,7 @@ func scheduleNtpCheck(hour, minute int, server string) bool {
 	})
 
 	if "" == server {
-		llog.Debug("Empty server, skipping scheduling")
+		llog.Info("Empty server, skipping scheduling")
 		return false
 	}
 
@@ -348,24 +351,24 @@ func scheduleNtpCheck(hour, minute int, server string) bool {
 		return false
 	}
 
-	llog.Debug("Setting up cronjob")
+	llog.Info("Setting up cronjob")
 	if nil == _cron {
 		_cron = cron.New()
 	}
 
 	cronSpec := fmt.Sprintf("%d %d * * *", minute, hour)
-	llog.WithField("cronSpec", cronSpec).Debug("Setting CRON SPEC")
+	llog.WithField("cronSpec", cronSpec).Info("Setting CRON SPEC")
 
 	id, err := _cron.AddFunc(
 		cronSpec,
 		func() {
-			llog.Debug("Running NTP query...")
+			llog.Info("Running NTP query...")
 			offset, err := getNtpOffset(server)
 			if nil != err {
 				llog.Error(err)
 				return
 			}
-			llog.WithField("ntpOffset", offset).Debug("Updating NTP offset")
+			llog.WithField("ntpOffset", offset).Info("Updating NTP offset")
 			_ntpOffset = offset
 			// notify all channels
 			msg := fmt.Sprintf("NTP offset from %q: %+v", server, _ntpOffset)
@@ -378,9 +381,9 @@ func scheduleNtpCheck(hour, minute int, server string) bool {
 		llog.Error(err)
 		return false
 	}
-	llog.WithField("entryID", id).Debug("Cronjob successfully setup")
+	llog.WithField("entryID", id).Info("Cronjob successfully setup")
 
-	llog.Debug("Starting cron")
+	llog.Info("Starting cron")
 	_cron.Start()
 
 	return true

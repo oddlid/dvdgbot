@@ -23,6 +23,7 @@ type User struct {
 	BestEntry time.Time    `json:"best_entry"` // tighhtest to 1337, or whatever...
 	Taxes     ScoreTracker `json:"taxes"`      // hos much tax over time
 	Bonuses   ScoreTracker `json:"bonuses"`    // how much bonuses over time
+	Misses    ScoreTracker `json:"misses"`     // how many times have the user been early or late
 	didTry    bool
 	l         *logrus.Entry
 }
@@ -384,5 +385,24 @@ func (u *User) addBonus(bonus int) {
 	if bonus > 0 { // we don't want the counter to step up if bonus is 0
 		u.Bonuses.Times++
 	}
+	u.Unlock()
+}
+
+func (u *User) getMissTotal() int {
+	u.RLock()
+	defer u.RUnlock()
+	return u.Misses.Total
+}
+
+func (u *User) getMissTimes() int {
+	u.RLock()
+	defer u.RUnlock()
+	return u.Misses.Times
+}
+
+func (u *User) addMiss() {
+	u.Lock()
+	u.Misses.Times++
+	u.Misses.Total++
 	u.Unlock()
 }

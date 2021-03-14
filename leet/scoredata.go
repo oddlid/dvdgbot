@@ -286,7 +286,7 @@ func (s *ScoreData) stats(channel string) string {
 
 	fstr := getPadStrFmt(
 		c.Users.longestNickLen(),
-		": %04d @ %s Best: %s Bonus: %03dx = %04d Tax: %03dx = -%04d",
+		": %04d @ %s Best: %s Bonus: %03dx = %04d Tax: %03dx = -%04d Miss: -%04d",
 	)
 
 	fmt.Fprintf(&sb, "Stats since %s:\n", s.BotStart.Format(time.RFC3339))
@@ -306,6 +306,7 @@ func (s *ScoreData) stats(channel string) string {
 			u.getBonusTotal(),
 			u.getTaxTimes(),
 			u.getTaxTotal(),
+			u.getMissTotal(),
 		)
 		winner(&sb, u)
 		greeting(&sb, u.Points)
@@ -319,9 +320,11 @@ func (s *ScoreData) tryScore(c *Channel, u *User, t time.Time) (bool, string) {
 	points, tf := getScoreForEntry(t) // -1 or 0
 
 	// No points, not even minus if you're outside the timeframe
-	if TF_BEFORE == tf || TF_AFTER == tf {
-		return false, ""
-	}
+	// leet() checks for this condition before calling this func, so I think we can
+	// comment this out safely.
+	//if TF_BEFORE == tf || TF_AFTER == tf {
+	//	return false, ""
+	//}
 
 	ts := fmt.Sprintf("[%02d:%02d:%02d:%09d]", t.Hour(), t.Minute(), t.Second(), t.Nanosecond())
 
@@ -344,8 +347,10 @@ func (s *ScoreData) tryScore(c *Channel, u *User, t time.Time) (bool, string) {
 	}
 
 	if TF_EARLY == tf {
+		u.addMiss()
 		return true, fmt.Sprintf(missTmpl, "early")
 	} else if TF_LATE == tf {
+		u.addMiss()
 		return true, fmt.Sprintf(missTmpl, "late")
 	}
 

@@ -142,15 +142,18 @@ func (u *User) score(points int, when time.Time) (bool, int) {
 	if u.hasTried() {
 		return false, u.getScore()
 	}
+
 	u.try(true)
 	u.setLastEntry(when)
 	go u.setBestEntry(when) // run in goroutine in order to not take time from others scoring
+
 	// Reset didTry after 2 minutes
 	// This should create a "loophole" so that if a user posts too early and gets -1,
 	// they could manage to get another -1 by being too late as well :D
 	time.AfterFunc(2*time.Minute, func() {
 		u.try(false)
 	})
+
 	return true, u.addScore(points)
 }
 
@@ -165,21 +168,6 @@ func (u *User) setLastEntry(when time.Time) {
 	u.LastEntry = when
 	u.Unlock()
 }
-
-//func (u *User) getShortTime() string {
-//	// use 0's to get subsecond value padded,
-//	// use 9's to get trailing 0's removed.
-//	// I don't know yet why, but when running tests on my mac,
-//	// I always get the last 3 digits as 0 when using padding,
-//	// although they're never 0 when calling t.Nanoseconds()
-//	// other places in the code.
-//	// TODO: Try to get full precision here
-//	return u.getLastEntry().Format("15:04:05.000000000")
-//}
-
-//func (u *User) getLongDate() string {
-//	return u.getLastEntry().Format("2006-01-02 15:04:05.000000000")
-//}
 
 func (u *User) setLocked(locked bool) {
 	u.Lock()

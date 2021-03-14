@@ -213,6 +213,7 @@ func (s *ScoreData) calcScore(c *Channel) string {
 		overshootTax := c.getOverShootTaxFor(getTargetScore(), user.getScore())
 		if overshootTax > 0 {
 			user.addScore(-overshootTax)
+			user.addTax(overshootTax)
 		}
 		if getTargetScore() == user.getScore() {
 			user.setLocked(true)

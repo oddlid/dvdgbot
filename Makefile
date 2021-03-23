@@ -1,5 +1,5 @@
 BINARY := dvdgbot.bin
-VERSION := 2021-03-14
+VERSION := 2021-03-23
 UNAME := $(shell uname -s)
 SOURCES := $(wildcard *.go)
 DEPS := $(wildcard leet/*.go larsmonsen/*.go xkcdbot/*.go userwatch/*.go timestamp/*.go quoteshuffle/*.go)

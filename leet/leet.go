@@ -365,6 +365,7 @@ func scheduleNtpCheck(hour, minute int, server string) bool {
 			llog.Info("Running NTP query...")
 			offset, err := getNtpOffset(server)
 			if nil != err {
+				_ntpOffset = 0 // reset, so we don't use offset that might be way off since last sync
 				llog.Error(err)
 				return
 			}

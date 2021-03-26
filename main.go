@@ -8,6 +8,7 @@ import (
 	"github.com/go-chat-bot/bot/irc"
 	_ "github.com/oddlid/dvdgbot/larsmonsen"
 	"github.com/oddlid/dvdgbot/leet"
+	_ "github.com/oddlid/dvdgbot/morse"
 	_ "github.com/oddlid/dvdgbot/timestamp"
 	_ "github.com/oddlid/dvdgbot/xkcdbot"
 	log "github.com/sirupsen/logrus"

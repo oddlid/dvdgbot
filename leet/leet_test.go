@@ -737,6 +737,41 @@ func TestNtpCheck(t *testing.T) {
 	}
 }
 
+func TestLastTsInCurrentRound(t *testing.T) {
+	log.SetLevel(log.DebugLevel)
+	rand.Seed(time.Now().UnixNano())
+	sd := getData()
+	c := sd.get(TST_CHAN)
+	u := c.get("Oddlid")
+
+	now := time.Now()
+	u.setLastEntry(now.AddDate(0, 0, -1)) // set to 1 day before now
+
+	//t.Logf("User last entry: %+v", u.getLastEntry())
+
+	if u.lastTsInCurrentRound(now) {
+		t.Error("1 day after lastEntry should not count as being in current round")
+	}
+
+	u.setLastEntry(now)
+
+	if !u.lastTsInCurrentRound(now) {
+		t.Error("Equal times should count as in current round")
+	}
+	if !u.lastTsInCurrentRound(now.Add(1 * time.Minute)) {
+		t.Error("1 minute after lastEntry should count as in current round")
+	}
+	if !u.lastTsInCurrentRound(now.Add(2 * time.Minute)) {
+		t.Error("2 minutes after lastEntry should count as in current round")
+	}
+	if !u.lastTsInCurrentRound(now.Add(3 * time.Minute)) {
+		t.Error("3 minutes after lastEntry should count as in current round")
+	}
+	if u.lastTsInCurrentRound(now.Add(4 * time.Minute)) {
+		t.Error("4 minutes after lastEntry should NOT count as in current round")
+	}
+}
+
 // We should bench both calling the method repeatedly and also implementing
 // the same locally so we have cached values, so we can see how much waste
 // it is to call that method to get only one rank.

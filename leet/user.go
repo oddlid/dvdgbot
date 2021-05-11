@@ -169,6 +169,25 @@ func (u *User) setLastEntry(when time.Time) {
 	u.Unlock()
 }
 
+func (u *User) lastTsInCurrentRound(t time.Time) bool {
+	leOffset := u.getLastEntry().Add(3 * time.Minute)
+
+	//l := u.log().WithFields(logrus.Fields{
+	//	"func":                "tsInCurrentRound",
+	//	"lastEntry":           u.getLastEntry(),
+	//	"lastEntryWithOffset": leOffset,
+	//	"argTime":             t,
+	//})
+
+	if t.After(leOffset) {
+		//l.Debug("Time argument is after lastEntry + 3 minutes")
+		return false
+	}
+
+	//l.Debug("Time argument is within 3 minutes from lastEntry")
+	return true
+}
+
 func (u *User) setLocked(locked bool) {
 	u.Lock()
 	u.Locked = locked

@@ -204,10 +204,15 @@ func (s *ScoreData) calcScore(c *Channel) string {
 	}
 	// a user can be in osmap but not in tmpNicks if the user missed the time and got -1 for that, but also got a bonus
 	// that made the total of those positive, and pushed the user to or over the limit
+	now := time.Now() // cache time since we're comparing in a loop
 	for nick, user := range osmap {
 		_, found := inStrSlice(c.tmpNicks, nick)
 		if found {
 			// If the overshooter is also a round contestant, we already dealt with it in the previous loop
+			continue
+		}
+		// a user can be marked as a winner from earlier rounds. We don't want to see those here.
+		if !user.lastTsInCurrentRound(now) {
 			continue
 		}
 		overshootTax := c.getOverShootTaxFor(getTargetScore(), user.getScore())

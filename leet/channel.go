@@ -57,12 +57,12 @@ func (c *Channel) name() (string, error) {
 	if nil != c.l {
 		entry, found := c.l.Data[key] // type Fields map[string]interface{}
 		if !found {
-			return "", fmt.Errorf("No logrus field with key: %q", key)
+			return "", fmt.Errorf("no logrus field with key: %q", key)
 		}
 		c.Name = fmt.Sprintf("%v", entry) // set name for later
 		return c.Name, nil
 	}
-	return "", fmt.Errorf("Unable to resolve channel name")
+	return "", fmt.Errorf("unable to resolve channel name")
 }
 
 func (c *Channel) nickList() []string {
@@ -76,7 +76,7 @@ func (c *Channel) nickList() []string {
 func (c *Channel) postTaxFail(msg string) error {
 	llog := c.log().WithField("func", "postTaxFail")
 	if !c.PostTaxFail {
-		str := "Configured to NOT post tax fail"
+		str := "configured to NOT post tax fail"
 		llog.Debug(str)
 		return fmt.Errorf(str)
 	}

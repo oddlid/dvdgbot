@@ -112,14 +112,14 @@ func (s *ScoreData) calcScore(c *Channel) string {
 	}
 
 	rank := func(w io.Writer, val int) {
-		if 0 == val {
+		if val == 0 {
 			return
 		}
 		fmt.Fprintf(w, " [Rank: +%02d]", val)
 	}
 
 	otax := func(w io.Writer, val int) {
-		if 0 == val {
+		if val == 0 {
 			return
 		}
 		fmt.Fprintf(w, " [Overshoot tax: -%d]", val)
@@ -129,7 +129,7 @@ func (s *ScoreData) calcScore(c *Channel) string {
 		if -1 == val {
 			return
 		}
-		if 0 == val {
+		if val == 0 {
 			fmt.Fprintf(w, " [Tax: Slap on the wrist ;)]")
 			return
 		}
@@ -231,7 +231,6 @@ func (s *ScoreData) calcScore(c *Channel) string {
 
 	return sb.String()
 }
-
 
 func (s *ScoreData) scheduleCalcScore(c *Channel, delayMinutes time.Duration) bool {
 	if s.calcInProgress {
@@ -337,10 +336,10 @@ func (s *ScoreData) tryScore(c *Channel, u *User, t time.Time) (bool, string) {
 	brs := _bonusConfigs.calc(fmt.Sprintf("%02d%09d", t.Second(), t.Nanosecond()))
 	bonusPoints := brs.TotalBonus()
 
-	didScore, userTotal := u.score(points + bonusPoints, t)
+	didScore, userTotal := u.score(points+bonusPoints, t)
 	if !didScore {
 		s.log().WithFields(logrus.Fields{
-			"func":   "tryScore",
+			"func":     "tryScore",
 			"didScore": didScore,
 		}).Error("It should not be possible to reach this branch")
 		return false, fmt.Sprintf("%s: I'm retarded and made a logical error :'(", u.Nick)

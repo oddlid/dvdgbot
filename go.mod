@@ -10,5 +10,5 @@ require (
 	github.com/robfig/cron/v3 v3.0.0
 	github.com/sirupsen/logrus v1.8.1
 	github.com/thoj/go-ircevent v0.0.0-20190807115034-8e7ce4b5a1eb
-	github.com/urfave/cli v1.22.5
+	github.com/urfave/cli/v2 v2.3.0
 )

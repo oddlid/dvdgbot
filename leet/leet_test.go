@@ -392,7 +392,7 @@ func TestOverShooters(t *testing.T) {
 	// When we get to the real code, we should when we check overshooters, check if the one at 0 points
 	// isLocked(), and if so, just ignore, otherwise add to list of winners.
 	markWinner := func(points int) (int, string) {
-		if 0 == points {
+		if points == 0 {
 			return points, " - Winner!"
 		}
 		return points, ""

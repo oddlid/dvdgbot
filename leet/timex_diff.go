@@ -4,9 +4,9 @@ package leet
 // https://github.com/icza/gox/blob/master/timex/timex.go
 
 import (
-	"time"
 	"fmt"
 	"strings"
+	"time"
 )
 
 // Diff calculates the absolute difference between 2 time instances in
@@ -65,7 +65,7 @@ func timexString(year, month, day, hour, min, sec int) string {
 	var sb strings.Builder
 
 	plural := func(word string, amount int, addComma bool) {
-		if 1 == amount {
+		if amount == 1 {
 			sb.WriteString(fmt.Sprintf("%d %s", amount, word))
 		} else {
 			sb.WriteString(fmt.Sprintf("%d %ss", amount, word))

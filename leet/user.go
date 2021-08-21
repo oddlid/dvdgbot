@@ -8,7 +8,6 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-
 type ScoreTracker struct {
 	Times int `json:"times"` // how many times have the user gotten a bonus or tax
 	Total int `json:"total"` // the sum of all
@@ -171,21 +170,7 @@ func (u *User) setLastEntry(when time.Time) {
 
 func (u *User) lastTsInCurrentRound(t time.Time) bool {
 	leOffset := u.getLastEntry().Add(3 * time.Minute)
-
-	//l := u.log().WithFields(logrus.Fields{
-	//	"func":                "tsInCurrentRound",
-	//	"lastEntry":           u.getLastEntry(),
-	//	"lastEntryWithOffset": leOffset,
-	//	"argTime":             t,
-	//})
-
-	if t.After(leOffset) {
-		//l.Debug("Time argument is after lastEntry + 3 minutes")
-		return false
-	}
-
-	//l.Debug("Time argument is within 3 minutes from lastEntry")
-	return true
+	return !t.After(leOffset)
 }
 
 func (u *User) setLocked(locked bool) {
@@ -309,7 +294,6 @@ func (u *User) setBestEntry(when time.Time) {
 		return
 	}
 
-
 	if TF_ONTIME == oldTimeCode {
 		if TF_EARLY == newTimeCode {
 			llog.Debug("Old time on time, but new is before - skipping")
@@ -328,7 +312,7 @@ func (u *User) setBestEntry(when time.Time) {
 		return
 	}
 
-	if (TF_LATE == oldTimeCode || TF_AFTER == oldTimeCode) {
+	if TF_LATE == oldTimeCode || TF_AFTER == oldTimeCode {
 		if TF_EARLY == newTimeCode {
 			// Most likely, an early time will be closer to the target than a
 			// late time
@@ -401,11 +385,12 @@ func (u *User) getMissTotal() int {
 	return u.Misses.Total
 }
 
-func (u *User) getMissTimes() int {
-	u.RLock()
-	defer u.RUnlock()
-	return u.Misses.Times
-}
+// Temporarily removed due to unused
+//func (u *User) getMissTimes() int {
+//	u.RLock()
+//	defer u.RUnlock()
+//	return u.Misses.Times
+//}
 
 func (u *User) addMiss() {
 	u.Lock()

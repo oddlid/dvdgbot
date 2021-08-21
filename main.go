@@ -12,7 +12,7 @@ import (
 	_ "github.com/oddlid/dvdgbot/timestamp"
 	_ "github.com/oddlid/dvdgbot/xkcdbot"
 	log "github.com/sirupsen/logrus"
-	"github.com/urfave/cli"
+	"github.com/urfave/cli/v2"
 	//"github.com/oddlid/dvdgbot/userwatch"
 )
 
@@ -29,13 +29,13 @@ var (
 	BIN_NAME   string
 )
 
-func envDefStr(key, fallback string) string {
-	val, found := os.LookupEnv(key)
-	if !found {
-		return fallback
-	}
-	return val // might still be empty, if set, but empty in ENV
-}
+//func envDefStr(key, fallback string) string {
+//	val, found := os.LookupEnv(key)
+//	if !found {
+//		return fallback
+//	}
+//	return val // might still be empty, if set, but empty in ENV
+//}
 
 func entryPoint(ctx *cli.Context) error {
 	c := &irc.Config{
@@ -60,7 +60,6 @@ func entryPoint(ctx *cli.Context) error {
 	//}
 	//leet.SetParentBot(b)
 
-
 	irc.Run(nil) // pass nil here, as we passed c to SetUpConn, so config is done
 
 	// If not using neither leet nor userwatch, you can comment out both ways to setup above,
@@ -76,55 +75,56 @@ func main() {
 	app.Version = fmt.Sprintf("%s_%s (Compiled: %s)", VERSION, COMMIT_ID, BUILD_DATE)
 	app.Compiled, _ = time.Parse(time.RFC3339, BUILD_DATE)
 	app.Copyright = fmt.Sprintf("(C) 2018 - %d, Odd Eivind Ebbesen", time.Now().Year())
-	app.Authors = []cli.Author{
-		cli.Author{
+	app.Authors = []*cli.Author{
+		{
 			Name:  "Odd E. Ebbesen",
 			Email: "oddebb@gmail.com",
 		},
 	}
 	app.Usage = "Run irc bot"
 	app.Flags = []cli.Flag{
-		cli.StringFlag{
-			Name:   "server, s",
-			Usage:  "IRC server `address`",
-			Value:  DEF_ADDR,
-			EnvVar: "IRC_SERVER",
+		&cli.StringFlag{
+			Name:    "server, s",
+			Usage:   "IRC server `address`",
+			Value:   DEF_ADDR,
+			EnvVars: []string{"IRC_SERVER"},
 		},
-		cli.StringFlag{
-			Name:   "user, u",
-			Usage:  "IRC `username`",
-			Value:  DEF_USER,
-			EnvVar: "IRC_USER",
+		&cli.StringFlag{
+			Name:    "user, u",
+			Usage:   "IRC `username`",
+			Value:   DEF_USER,
+			EnvVars: []string{"IRC_USER"},
 		},
-		cli.StringFlag{
-			Name:   "nick, n",
-			Usage:  "IRC `nick`",
-			Value:  DEF_NICK,
-			EnvVar: "IRC_NICK",
+		&cli.StringFlag{
+			Name:    "nick, n",
+			Usage:   "IRC `nick`",
+			Value:   DEF_NICK,
+			EnvVars: []string{"IRC_NICK"},
 		},
-		cli.StringFlag{
-			Name:   "password, p",
-			Usage:  "IRC server `password`",
-			EnvVar: "IRC_PASS",
+		&cli.StringFlag{
+			Name:    "password, p",
+			Usage:   "IRC server `password`",
+			EnvVars: []string{"IRC_PASS"},
 		},
-		cli.StringSliceFlag{
+		&cli.StringSliceFlag{
 			Name:  "channel, c",
 			Usage: "Channel to join. May be repeated. Specify \"#chan passwd\" if a channel needs a password.",
 		},
-		cli.BoolTFlag{
-			Name:   "tls, t",
-			Usage:  "Use secure TLS connection",
-			EnvVar: "IRC_TLS",
+		&cli.BoolFlag{
+			Name:    "tls, t",
+			Usage:   "Use secure TLS connection",
+			Value:   true,
+			EnvVars: []string{"IRC_TLS"},
 		},
-		cli.StringFlag{
+		&cli.StringFlag{
 			Name:  "log-level, l",
 			Value: "info",
 			Usage: "Log `level` (options: debug, info, warn, error, fatal, panic)",
 		},
-		cli.BoolFlag{
-			Name:   "debug, d",
-			Usage:  "Run in debug mode",
-			EnvVar: "DEBUG",
+		&cli.BoolFlag{
+			Name:    "debug, d",
+			Usage:   "Run in debug mode",
+			EnvVars: []string{"DEBUG"},
 		},
 	}
 	app.Before = func(c *cli.Context) error {

@@ -14,11 +14,8 @@ ARG BOT_USER=dvdgbot
 
 RUN addgroup -g 1000 ${BOT_USER} && adduser -u 1000 -G ${BOT_USER} -D ${BOT_USER}
 
-RUN apk add --no-cache --update \
-		ca-certificates \
-		tini \
-		&& \
-		rm -rf /var/cache/apk/*
+RUN apk add --no-cache --update ca-certificates \
+		&& rm -rf /var/cache/apk/*
 
 COPY ${BUILD_BIN} /usr/local/bin/
 RUN chown ${BOT_USER}:${BOT_USER} /usr/local/bin/${BUILD_BIN} && chmod 755 /usr/local/bin/${BUILD_BIN}
@@ -26,7 +23,6 @@ RUN chown ${BOT_USER}:${BOT_USER} /usr/local/bin/${BUILD_BIN} && chmod 755 /usr/
 USER ${BOT_USER}
 # We need to copy the ARG into ENV, as the shell context in CMD cannot access ARG
 ENV BOT_BIN=${BUILD_BIN}
-ENTRYPOINT ["tini", "-g", "--"]
 # Using the shell format of CMD is most useful here, as variable expansion then works as intended
 CMD ${BOT_BIN} -h
 

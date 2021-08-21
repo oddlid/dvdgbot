@@ -157,7 +157,7 @@ func getScoreForEntry(t time.Time) (int, TimeCode) {
 func checkArgs(cmd *bot.Cmd) (proceed bool, msg string) {
 	llog := _log.WithField("func", "checkArgs")
 	alen := len(cmd.Args)
-	if alen == 1 && "stats" == cmd.Args[0] {
+	if alen == 1 && cmd.Args[0] == "stats" {
 		if _scoreData.calcInProgress {
 			msg = "Stats are calculating. Try again in a couple of minutes."
 			return
@@ -165,7 +165,7 @@ func checkArgs(cmd *bot.Cmd) (proceed bool, msg string) {
 			msg = _scoreData.stats(cmd.Channel)
 			return
 		}
-	} else if alen == 1 && "reload" == cmd.Args[0] {
+	} else if alen == 1 && cmd.Args[0] == "reload" {
 		// TODO: Handle load errors and give feedback for BC as well
 		err := _bonusConfigs.loadFile(_bonusConfigFile)
 		if err != nil {
@@ -201,7 +201,7 @@ func leet(cmd *bot.Cmd) (string, error) {
 	}
 
 	// Adjust time for NTP offset, if set
-	if 0 != _ntpOffset {
+	if _ntpOffset != 0 {
 		// Tempting to add a log statement here, but seeing as slow as that is, we don't
 		// want to lose time to that in this func
 		t = t.Add(_ntpOffset)
@@ -258,7 +258,7 @@ func leet(cmd *bot.Cmd) (string, error) {
 	}
 
 	// bogus
-	return "", fmt.Errorf("%s: Reached beyond logic...", PLUGIN)
+	return "", fmt.Errorf("%s: Reached beyond logic", PLUGIN)
 }
 
 func envDefStr(key, fallback string) string {
@@ -286,13 +286,13 @@ func envDefInt(key string, fallback int) int {
 // vars _hour/_minute if not set
 func getTargetScore() int {
 	// return cached result if it exists
-	if 0 != _targetScore {
+	if _targetScore != 0 {
 		return _targetScore
 	}
-	if 0 == _hour {
+	if _hour == 0 {
 		_hour = DEF_HOUR
 	}
-	if 0 == _minute {
+	if _minute == 0 {
 		_minute = DEF_MINUTE
 	}
 	intVal, err := strconv.Atoi(fmt.Sprintf("%d%02d", _hour, _minute))
@@ -336,7 +336,7 @@ func scheduleNtpCheck(hour, minute int, server string) bool {
 		"server": server,
 	})
 
-	if "" == server {
+	if server == "" {
 		llog.Info("Empty server, skipping scheduling")
 		return false
 	}
@@ -373,7 +373,7 @@ func scheduleNtpCheck(hour, minute int, server string) bool {
 			_ntpOffset = offset
 			// notify all channels
 			msg := fmt.Sprintf("NTP offset from %q: %+v", server, _ntpOffset)
-			for channel, _ := range _scoreData.Channels {
+			for channel := range _scoreData.Channels {
 				msgChan(channel, msg)
 			}
 		},
@@ -421,7 +421,7 @@ func init() {
 	// if the variable is set, which should prevent this from being run during tests and so on, but for now,
 	// I can live with it being like this.
 	// But during testing one may also just not set env LEETBOT_NTP_SERVER, and if so, this section is ignored.
-	if "" != _ntpServer {
+	if _ntpServer != "" {
 		llog.WithField("ntpServer", _ntpServer).Info("NTP server configured, scheduling NTP checks...")
 		h, m := getCronTime(_hour, _minute, -2*time.Minute)
 		ok := scheduleNtpCheck(h, m, _ntpServer)

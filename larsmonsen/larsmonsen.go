@@ -1,34 +1,26 @@
 package larsmonsen
 
 import (
-	"os"
 	"regexp"
 
 	"github.com/go-chat-bot/bot"
 	"github.com/oddlid/dvdgbot/quoteshuffle"
-	log "github.com/sirupsen/logrus"
+	"github.com/oddlid/dvdgbot/util"
+	"github.com/rs/zerolog/log"
 )
 
 const (
 	PLUGIN     = "LarsMonsen"
 	FACTS_FILE = "/tmp/larsmonsenfacts.json"
-	pattern    = "(?i)\\b(lars|monsen)\\b"
-	cmdName    = "larsmonsen"
+	PATTERN    = "(?i)\\b(lars|monsen)\\b"
+	CMD_NAME   = "larsmonsen"
 )
 
 var (
 	qd   *quoteshuffle.QuoteData
-	re   = regexp.MustCompile(pattern)
-	_log = log.WithField("plugin", PLUGIN)
+	re   = regexp.MustCompile(PATTERN)
+	_log = log.With().Str("plugin", PLUGIN).Logger()
 )
-
-func envDefStr(key, fallback string) string {
-	val, found := os.LookupEnv(key)
-	if !found {
-		return fallback
-	}
-	return val // might still be empty, if set, but empty in ENV
-}
 
 func larsmonsen(command *bot.PassiveCmd) (string, error) {
 	if re.MatchString(command.Raw) {
@@ -39,10 +31,12 @@ func larsmonsen(command *bot.PassiveCmd) (string, error) {
 
 func init() {
 	var err error
-	qd, err = quoteshuffle.New(envDefStr("LARSMONSENFACTS_FILE", FACTS_FILE))
+	qd, err = quoteshuffle.New(util.EnvDefStr("LARSMONSENFACTS_FILE", FACTS_FILE))
 	if err != nil {
-		_log.WithError(err).Error("Error loading facts file")
+		_log.Error().
+			Err(err).
+			Msg("Error loading facts file")
 		return
 	}
-	bot.RegisterPassiveCommand(cmdName, larsmonsen)
+	bot.RegisterPassiveCommand(CMD_NAME, larsmonsen)
 }

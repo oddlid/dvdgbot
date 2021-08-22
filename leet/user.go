@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog"
 )
 
 type ScoreTracker struct {
@@ -24,7 +24,7 @@ type User struct {
 	Bonuses   ScoreTracker `json:"bonuses"`    // how much bonuses over time
 	Misses    ScoreTracker `json:"misses"`     // how many times have the user been early or late
 	didTry    bool
-	l         *logrus.Entry
+	l         zerolog.Logger
 }
 
 type UserMap map[string]*User
@@ -95,13 +95,6 @@ func (us UserSlice) getIndex(nick string) int {
 		}
 	}
 	return -1
-}
-
-func (u *User) log() *logrus.Entry {
-	if nil == u.l {
-		return _log // pkg global
-	}
-	return u.l
 }
 
 func (u *User) try(val bool) {
@@ -236,21 +229,23 @@ func (u *User) setBestEntryWithLock(when time.Time) {
 // setBestEntry() will set BestEntry for the user, if given time is closer to target
 // time than previously stored time value
 func (u *User) setBestEntry(when time.Time) {
-	llog := u.log().WithFields(logrus.Fields{
-		"func":     "setBestEntry",
-		"oldEntry": u.BestEntry,
-		"newEntry": when,
-	})
+	llog := u.l.With().
+		Str("func", "setBestEntry").
+		Time("oldEntry", u.BestEntry).
+		Time("newEntry", when).
+		Logger()
 	// If no previous value, we just don't care and set what we get
 	if u.BestEntry.IsZero() {
-		llog.Debug("No previous value, accepting anything")
+		llog.Debug().Msg("No previous value, accepting anything")
 		u.setBestEntryWithLock(when)
 		return
 	}
 	// ...
 	within, newTimeCode := withinTimeFrame(when)
 	if !within {
-		llog.WithField("newTimeCode", newTimeCode).Debug("Outside timeframe")
+		llog.Debug().
+			Int("newTimeCode", int(newTimeCode)).
+			Msg("Outside timeframe")
 		return
 	}
 
@@ -274,41 +269,41 @@ func (u *User) setBestEntry(when time.Time) {
 	if TF_BEFORE == oldTimeCode || TF_EARLY == oldTimeCode {
 		if TF_EARLY == newTimeCode {
 			if IsAfter(when, u.BestEntry) {
-				llog.Debug("Both times are before, but new time is better - setting time")
+				llog.Debug().Msg("Both times are before, but new time is better - setting time")
 				u.setBestEntryWithLock(when)
 				return
 			}
-			llog.Debug("Both times are before, but old one is better - skipping")
+			llog.Debug().Msg("Both times are before, but old one is better - skipping")
 			return
 		}
 		if TF_ONTIME == newTimeCode {
-			llog.Debug("Old time is before, new time is on time - setting time")
+			llog.Debug().Msg("Old time is before, new time is on time - setting time")
 			u.setBestEntryWithLock(when)
 			return
 		}
 		if TF_LATE == newTimeCode {
-			llog.Debug("Old time is before, new time is after - skipping")
+			llog.Debug().Msg("Old time is before, new time is after - skipping")
 			return
 		}
-		llog.Debug("Old time is before, new time unchecked")
+		llog.Debug().Msg("Old time is before, new time unchecked")
 		return
 	}
 
 	if TF_ONTIME == oldTimeCode {
 		if TF_EARLY == newTimeCode {
-			llog.Debug("Old time on time, but new is before - skipping")
+			llog.Debug().Msg("Old time on time, but new is before - skipping")
 			return
 		}
 		if TF_LATE == newTimeCode {
-			llog.Debug("Old time on time, but new time after - skipping")
+			llog.Debug().Msg("Old time on time, but new time after - skipping")
 			return
 		}
 		if IsBefore(when, u.BestEntry) {
-			llog.Debug("Both times on time, but new one is better - setting time")
+			llog.Debug().Msg("Both times on time, but new one is better - setting time")
 			u.setBestEntryWithLock(when)
 			return
 		}
-		llog.Debug("Both times on time, but old one is better - skipping")
+		llog.Debug().Msg("Both times on time, but old one is better - skipping")
 		return
 	}
 
@@ -316,25 +311,25 @@ func (u *User) setBestEntry(when time.Time) {
 		if TF_EARLY == newTimeCode {
 			// Most likely, an early time will be closer to the target than a
 			// late time
-			llog.Debug("Old time is after, new time before - setting time")
+			llog.Debug().Msg("Old time is after, new time before - setting time")
 			u.setBestEntryWithLock(when)
 			return
 		}
 		if TF_ONTIME == newTimeCode {
-			llog.Debug("Old time is after, new time is on time - setting time")
+			llog.Debug().Msg("Old time is after, new time is on time - setting time")
 			u.setBestEntryWithLock(when)
 			return
 		}
 		if IsBefore(when, u.BestEntry) {
-			llog.Debug("Both times are after, but new time is better - setting time")
+			llog.Debug().Msg("Both times are after, but new time is better - setting time")
 			u.setBestEntryWithLock(when)
 			return
 		}
-		llog.Debug("Both times are after, but old one is better - skipping")
+		llog.Debug().Msg("Both times are after, but old one is better - skipping")
 		return
 	}
 
-	llog.Debug("Should not get here")
+	llog.Debug().Msg("Should not get here")
 }
 
 func (u *User) getTaxTotal() int {

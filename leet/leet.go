@@ -4,14 +4,14 @@ import (
 	"fmt"
 	"io"
 	"math/rand"
-	"os"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/go-chat-bot/bot"
+	"github.com/oddlid/dvdgbot/util"
 	"github.com/robfig/cron/v3"
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog/log"
 )
 
 // Constants used for module settings, unless corresponding env vars are given
@@ -43,7 +43,7 @@ var (
 	_scoreData       *ScoreData
 	_bot             *bot.Bot
 	_bonusConfigs    BonusConfigs
-	_log             = logrus.WithField("plugin", PLUGIN) // *logrus.Entry
+	_log             = log.With().Str("plugin", PLUGIN).Logger()
 	_ntpServer       string
 	_ntpOffset       time.Duration
 	_cron            *cron.Cron
@@ -57,14 +57,19 @@ func SetParentBot(b *bot.Bot) {
 }
 
 func msgChan(channel, msg string) error {
+	_log.Debug().
+		Str("func", "msgChan").
+		Str("channel", channel).
+		Str("message", msg).
+		Send()
 	if nil == _bot {
-		str := "ParentBot is nil"
-		_log.WithFields(logrus.Fields{
-			"func":    "msgChan",
-			"channel": channel,
-			"message": msg,
-		}).Error(str)
-		return fmt.Errorf(str)
+		return fmt.Errorf("parentBot is nil")
+	}
+	if channel == "" {
+		return fmt.Errorf("no channel name given")
+	}
+	if msg == "" {
+		return fmt.Errorf("refusing to send empty message")
 	}
 	_bot.SendMessage(
 		bot.OutgoingMessage{
@@ -155,7 +160,7 @@ func getScoreForEntry(t time.Time) (int, TimeCode) {
 }
 
 func checkArgs(cmd *bot.Cmd) (proceed bool, msg string) {
-	llog := _log.WithField("func", "checkArgs")
+	llog := _log.With().Str("func", "checkArgs").Logger()
 	alen := len(cmd.Args)
 	if alen == 1 && cmd.Args[0] == "stats" {
 		if _scoreData.calcInProgress {
@@ -169,12 +174,14 @@ func checkArgs(cmd *bot.Cmd) (proceed bool, msg string) {
 		// TODO: Handle load errors and give feedback for BC as well
 		err := _bonusConfigs.loadFile(_bonusConfigFile)
 		if err != nil {
-			llog.WithError(err).Error("Error loading Bonus Configs from file")
+			llog.Error().
+				Err(err).
+				Msg("Error loading Bonus Configs from file")
 		}
 		if !_scoreData.saveInProgress {
 			_, err = _scoreData.loadFile(_scoreFile)
 			if nil != err {
-				llog.Error(err)
+				llog.Error().Err(err).Send()
 				msg = err.Error()
 			} else {
 				msg = "Score data reloaded from file"
@@ -261,26 +268,26 @@ func leet(cmd *bot.Cmd) (string, error) {
 	return "", fmt.Errorf("%s: Reached beyond logic", PLUGIN)
 }
 
-func envDefStr(key, fallback string) string {
-	val, found := os.LookupEnv(key)
-	if !found {
-		return fallback
-	}
-	return val // might still be empty, if set, but empty in ENV
-}
-
-func envDefInt(key string, fallback int) int {
-	val, found := os.LookupEnv(key)
-	if !found {
-		return fallback
-	}
-	intVal, err := strconv.Atoi(val)
-	if err != nil {
-		_log.WithError(err).Error("Conversion error")
-		return fallback
-	}
-	return intVal
-}
+//func envDefStr(key, fallback string) string {
+//	val, found := os.LookupEnv(key)
+//	if !found {
+//		return fallback
+//	}
+//	return val // might still be empty, if set, but empty in ENV
+//}
+//
+//func envDefInt(key string, fallback int) int {
+//	val, found := os.LookupEnv(key)
+//	if !found {
+//		return fallback
+//	}
+//	intVal, err := strconv.Atoi(val)
+//	if err != nil {
+//		_log.WithError(err).Error("Conversion error")
+//		return fallback
+//	}
+//	return intVal
+//}
 
 // getTargetScore should be used only _after_ pickupEnv, as it will modify
 // vars _hour/_minute if not set
@@ -297,7 +304,9 @@ func getTargetScore() int {
 	}
 	intVal, err := strconv.Atoi(fmt.Sprintf("%d%02d", _hour, _minute))
 	if nil != err {
-		_log.WithError(err).Error("Conversion error")
+		_log.Error().
+			Err(err).
+			Msg("Conversion error")
 		return -1
 	}
 	// cache the result for later calls
@@ -329,47 +338,51 @@ func scheduleNtpCheck(hour, minute int, server string) bool {
 	// Since this func is called from init(), we need to use log.(Info|Error) here,
 	// as we haven't yet reached the point where log.DebugLevel is set.
 
-	llog := _log.WithFields(logrus.Fields{
-		"func":   "scheduleNtpCheck",
-		"hour":   hour,
-		"minute": minute,
-		"server": server,
-	})
+	llog := _log.With().
+		Str("func", "scheduleNtpCheck").
+		Str("server", server).
+		Int("hour", hour).
+		Int("minute", minute).
+		Logger()
 
 	if server == "" {
-		llog.Info("Empty server, skipping scheduling")
+		llog.Info().Msg("Empty server, skipping scheduling")
 		return false
 	}
 
 	if hour < 0 || hour > 23 {
-		llog.Error("Hour must be between 0 and 23")
+		llog.Error().Msg("Hour must be between 0 and 23")
 		return false
 	}
 
 	if minute < 0 || minute > 59 {
-		llog.Error("Minute must be between 0 and 59")
+		llog.Error().Msg("Minute must be between 0 and 59")
 		return false
 	}
 
-	llog.Info("Setting up cronjob")
+	llog.Info().Msg("Setting up cronjob")
 	if nil == _cron {
 		_cron = cron.New()
 	}
 
 	cronSpec := fmt.Sprintf("%d %d * * *", minute, hour)
-	llog.WithField("cronSpec", cronSpec).Info("Setting CRON SPEC")
+	llog.Info().
+		Str("cronSpec", cronSpec).
+		Msg("Setting CRON SPEC")
 
 	id, err := _cron.AddFunc(
 		cronSpec,
 		func() {
-			llog.Info("Running NTP query...")
+			llog.Info().Msg("Running NTP query...")
 			offset, err := getNtpOffset(server)
 			if nil != err {
 				_ntpOffset = 0 // reset, so we don't use offset that might be way off since last sync
-				llog.Error(err)
+				llog.Error().Err(err).Send()
 				return
 			}
-			llog.WithField("ntpOffset", offset).Info("Updating NTP offset")
+			llog.Info().
+				Dur("ntpOffset", offset).
+				Msg("Updating NTP offset")
 			_ntpOffset = offset
 			// notify all channels
 			msg := fmt.Sprintf("NTP offset from %q: %+v", server, _ntpOffset)
@@ -379,39 +392,44 @@ func scheduleNtpCheck(hour, minute int, server string) bool {
 		},
 	)
 	if nil != err {
-		llog.Error(err)
+		llog.Error().Err(err).Send()
 		return false
 	}
-	llog.WithField("entryID", id).Info("Cronjob successfully setup")
+	llog.Info().
+		Int("entryID", int(id)).
+		Msg("Cronjob successfully setup, starting cron")
 
-	llog.Info("Starting cron")
 	_cron.Start()
 
 	return true
 }
 
 func pickupEnv() {
-	_hour = envDefInt("LEETBOT_HOUR", DEF_HOUR)
-	_minute = envDefInt("LEETBOT_MINUTE", DEF_MINUTE)
-	_scoreFile = envDefStr("LEETBOT_SCOREFILE", SCORE_FILE)
-	_bonusConfigFile = envDefStr("LEETBOT_BONUSCONFIGFILE", BONUSCONFIGS_FILE)
-	_ntpServer = envDefStr("LEETBOT_NTP_SERVER", "") // we want empty as default if not specified here
+	_hour = util.EnvDefInt("LEETBOT_HOUR", DEF_HOUR)
+	_minute = util.EnvDefInt("LEETBOT_MINUTE", DEF_MINUTE)
+	_scoreFile = util.EnvDefStr("LEETBOT_SCOREFILE", SCORE_FILE)
+	_bonusConfigFile = util.EnvDefStr("LEETBOT_BONUSCONFIGFILE", BONUSCONFIGS_FILE)
+	_ntpServer = util.EnvDefStr("LEETBOT_NTP_SERVER", "") // we want empty as default if not specified here
 }
 
 func init() {
 	pickupEnv()
 
 	var err error
-	llog := _log.WithField("func", "init")
+	llog := _log.With().Str("func", "init").Logger()
 
 	_scoreData, err = newScoreData().loadFile(_scoreFile)
 	if err != nil {
-		llog.WithError(err).Error("Error loading scoredata from file")
+		llog.Error().
+			Err(err).
+			Msg("Error loading scoredata from file")
 	}
 
 	err = _bonusConfigs.loadFile(_bonusConfigFile)
 	if err != nil {
-		llog.WithError(err).Error("Error loading Bonus Configs from file")
+		llog.Error().
+			Err(err).
+			Msg("Error loading Bonus Configs from file")
 	}
 
 	// This is hard to test, as I'd normally set _hour and _minute to the same time as when running tests,
@@ -422,16 +440,18 @@ func init() {
 	// I can live with it being like this.
 	// But during testing one may also just not set env LEETBOT_NTP_SERVER, and if so, this section is ignored.
 	if _ntpServer != "" {
-		llog.WithField("ntpServer", _ntpServer).Info("NTP server configured, scheduling NTP checks...")
+		llog.Info().
+			Str("ntpServer", _ntpServer).
+			Msg("NTP server configured, scheduling NTP checks...")
 		h, m := getCronTime(_hour, _minute, -2*time.Minute)
 		ok := scheduleNtpCheck(h, m, _ntpServer)
 		if ok {
-			llog.Info("NTP check scheduled")
+			llog.Info().Msg("NTP check scheduled")
 		} else {
-			llog.Error("Error scheduling NTP check")
+			llog.Error().Msg("Error scheduling NTP check")
 		}
 	} else {
-		llog.Info("No NTP server set")
+		llog.Info().Msg("No NTP server set")
 	}
 
 	// Init rand for using in tax calculation

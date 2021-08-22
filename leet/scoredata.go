@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog"
 )
 
 type ScoreData struct {
@@ -17,7 +17,7 @@ type ScoreData struct {
 	Channels       map[string]*Channel `json:"channels"`
 	saveInProgress bool
 	calcInProgress bool
-	l              *logrus.Entry
+	l              zerolog.Logger
 }
 
 func newScoreData() *ScoreData {
@@ -32,12 +32,12 @@ func (s *ScoreData) isEmpty() bool {
 	return len(s.Channels) == 0
 }
 
-func (s *ScoreData) log() *logrus.Entry {
-	if nil == s.l {
-		return _log
-	}
-	return s.l
-}
+//func (s *ScoreData) log() zerolog.Logger {
+//	//if nil == s.l {
+//	//	return _log
+//	//}
+//	return s.l
+//}
 
 func (s *ScoreData) load(r io.Reader) error {
 	jb, err := ioutil.ReadAll(r)
@@ -57,7 +57,9 @@ func (s *ScoreData) loadFile(filename string) (*ScoreData, error) {
 	if err != nil {
 		return s, err
 	}
-	s.log().WithField("filename", filename).Info("Leet stats (re)loaded from file")
+	s.l.Info().
+		Str("filename", filename).
+		Msg("Leet stats (re)loaded from file")
 	return s, nil
 }
 
@@ -81,10 +83,10 @@ func (s *ScoreData) saveFile(filename string) error {
 	if err != nil {
 		return err
 	}
-	s.log().WithFields(logrus.Fields{
-		"bytes":    n,
-		"filename": filename,
-	}).Info("File saved")
+	s.l.Info().
+		Int("bytes", n).
+		Str("filename", filename).
+		Msg("File saved")
 	return nil
 }
 
@@ -96,7 +98,9 @@ func (s *ScoreData) scheduleSave(filename string, delayMinutes time.Duration) bo
 	time.AfterFunc(delayMinutes*time.Minute, func() {
 		err := s.saveFile(filename)
 		if err != nil {
-			s.log().WithError(err).Error("Scheduled save failed")
+			s.l.Error().
+				Err(err).
+				Msg("Scheduled save failed")
 		}
 		s.saveInProgress = false
 	})
@@ -240,7 +244,10 @@ func (s *ScoreData) scheduleCalcScore(c *Channel, delayMinutes time.Duration) bo
 	time.AfterFunc(delayMinutes*time.Minute, func() {
 		err := msgChan(c.Name, strings.TrimRight(s.calcScore(c), "\n"))
 		if nil != err {
-			s.log().WithField("func", "scheduleCalcScore").Error(err)
+			s.l.Error().
+				Err(err).
+				Str("func", "scheduleCalcScore").
+				Send()
 		}
 		s.calcInProgress = false
 	})
@@ -253,10 +260,12 @@ func (s *ScoreData) get(channel string) *Channel {
 		c = &Channel{
 			Name:  channel,
 			Users: make(UserMap),
-			l:     s.log().WithField("channel", channel),
+			l:     s.l.With().Str("channel", channel).Logger(),
 		}
 		s.Channels[channel] = c
-		c.l.WithField("func", "get").Debug("Channel object created")
+		c.l.Debug().
+			Str("func", "get").
+			Msg("Channel object created")
 	}
 	return c
 }
@@ -338,10 +347,10 @@ func (s *ScoreData) tryScore(c *Channel, u *User, t time.Time) (bool, string) {
 
 	didScore, userTotal := u.score(points+bonusPoints, t)
 	if !didScore {
-		s.log().WithFields(logrus.Fields{
-			"func":     "tryScore",
-			"didScore": didScore,
-		}).Error("It should not be possible to reach this branch")
+		s.l.Error().
+			Str("func", "tryScore").
+			Bool("didScore", didScore).
+			Msg("It should not be possible to reach this branch")
 		return false, fmt.Sprintf("%s: I'm retarded and made a logical error :'(", u.Nick)
 	}
 

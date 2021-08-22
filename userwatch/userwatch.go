@@ -26,9 +26,9 @@ import (
 	"sync"
 	"time"
 
-	log "github.com/sirupsen/logrus"
 	"github.com/go-chat-bot/bot"
 	"github.com/go-chat-bot/bot/irc"
+	"github.com/rs/zerolog/log"
 	ircevent "github.com/thoj/go-ircevent"
 )
 
@@ -51,7 +51,7 @@ var (
 	_conn    *ircevent.Connection
 	_wd      *WatchData
 	_cfgfile string
-	_log     = log.WithField("plugin", PLUGIN)
+	_log     = log.With().Str("plugin", PLUGIN).Logger()
 )
 
 type User struct {
@@ -72,7 +72,9 @@ type WatchData struct {
 }
 
 func InitBot(cfg *irc.Config, b *bot.Bot, conn *ircevent.Connection, cfgfile string) error {
-	_log.Debug("Initializing UserWatch...")
+	//_log.Debug("Initializing UserWatch...")
+	_log.Debug().
+		Msg("Initializing UserWatch")
 	_cfg = cfg
 	_bot = b
 	_conn = conn
@@ -134,7 +136,9 @@ func NewWatchData() *WatchData {
 func (wd *WatchData) Get(channel string) *Channel {
 	c, found := wd.Channels[channel]
 	if !found {
-		_log.WithField("channel", channel).Debug("Creating channel with empty users")
+		_log.Debug().
+			Str("channel", channel).
+			Msg("Creating channel with empty users")
 		c = &Channel{
 			Users: make(map[string]*User),
 		}
@@ -163,10 +167,10 @@ func (wd *WatchData) SaveFile(filename string) error {
 	if err != nil {
 		return err
 	}
-	_log.WithFields(log.Fields{
-		"filename": filename,
-		"bytes":    n,
-	}).Debug("Userwatch data saved")
+	_log.Debug().
+		Str("filename", filename).
+		Int("bytes", n).
+		Msg("Userwatch data saved")
 	return nil
 }
 
@@ -181,13 +185,18 @@ func (wd *WatchData) Load(r io.Reader) error {
 func (wd *WatchData) LoadFile(filename string) *WatchData {
 	file, err := os.Open(filename)
 	if err != nil {
-		_log.WithField("filename", filename).WithError(err).Error("Error opening file")
+		_log.Error().
+			Err(err).
+			Str("filename", filename).
+			Send()
 		return wd
 	}
 	defer file.Close()
 	err = wd.Load(file)
 	if err != nil {
-		_log.WithError(err).Error("Error from Load()")
+		_log.Error().
+			Err(err).
+			Send()
 		return NewWatchData()
 	}
 	return wd
@@ -205,7 +214,9 @@ func (c *Channel) Get(nick string) *User {
 	u, found := c.Users[nick]
 	c.RUnlock()
 	if !found {
-		_log.WithField("nick", nick).Debug("Creating new, empty user")
+		_log.Debug().
+			Str("nick", nick).
+			Msg("Creating new, empty user")
 		u = &User{Nick: nick}
 		c.Lock()
 		c.Users[nick] = u
@@ -224,7 +235,7 @@ func (c *Channel) Nicks() []string {
 }
 
 func GetMsg(msg, nick string) string {
-	if strings.Index(msg, "%s") > -1 && nick != "" {
+	if strings.Contains(msg, "%s") && nick != "" {
 		return fmt.Sprintf(msg, nick)
 	}
 	return msg
@@ -252,7 +263,9 @@ func (u *User) SetQMsg(msg string) {
 
 func onJOIN(e *ircevent.Event) {
 	if e.Nick == _conn.GetNick() {
-		_log.WithField("nick", e.Nick).Debug("Seems it's myself joining")
+		_log.Debug().
+			Str("nick", e.Nick).
+			Msg("Seems it's myself joining")
 		return
 	}
 
@@ -272,21 +285,22 @@ func onJOIN(e *ircevent.Event) {
 
 	_bot.SendMessage(
 		bot.OutgoingMessage{
-			e.Arguments[0], // will be the channel name
-			msg,
-			&bot.User{
+			Target:  e.Arguments[0], // will be the channel name
+			Message: msg,
+			Sender: &bot.User{
 				ID:       e.Host,
 				Nick:     e.Nick,
 				RealName: e.User,
 			},
-			nil,
 		},
 	)
 }
 
 func onQUIT(e *ircevent.Event) {
 	if e.Nick == _conn.GetNick() {
-		_log.WithField("nick", e.Nick).Debug("Seems it's myself leaving")
+		_log.Debug().
+			Str("nick", e.Nick).
+			Msg("Seems it's myself leaving")
 		return
 	}
 
@@ -307,14 +321,13 @@ func onQUIT(e *ircevent.Event) {
 	// maybe we should loop through all channels and send a msg for each here
 	_bot.SendMessage(
 		bot.OutgoingMessage{
-			_cfg.Channels[0], // on QUIT e.Arguments[0] is empty, so we use this instead, even if not pretty
-			msg,
-			&bot.User{
+			Target:  _cfg.Channels[0], // on QUIT e.Arguments[0] is empty, so we use this instead, even if not pretty
+			Message: msg,
+			Sender: &bot.User{
 				ID:       e.Host,
 				Nick:     e.Nick,
 				RealName: e.User,
 			},
-			nil,
 		},
 	)
 }
@@ -357,7 +370,9 @@ func clear() {
 
 func add(channel, nick, msgtype, msg string) (string, error) {
 	if nick == "" || msgtype == "" || msg == "" {
-		_log.WithField("func", "add()").Error("Empty nick, msgtype or msg")
+		_log.Error().
+			Str("func", "add()").
+			Msg("Empty nick, msgtype or msg")
 		emsg := ADD + " Error: nick, message type and message has to be set"
 		return emsg, fmt.Errorf(emsg)
 	}
@@ -379,8 +394,10 @@ func add(channel, nick, msgtype, msg string) (string, error) {
 
 func del(channel, nick, msgtype string) (string, error) {
 	if nick == "" {
-		_log.WithField("func", "del()").Error("Empty nick")
-		emsg := "Error: empty nick"
+		emsg := "empty nick"
+		_log.Error().
+			Str("func", "del()").
+			Msg(emsg)
 		return emsg, fmt.Errorf(emsg)
 	}
 

@@ -12,7 +12,7 @@ import (
 	"os"
 	"time"
 
-	log "github.com/sirupsen/logrus"
+	"github.com/rs/zerolog/log"
 )
 
 const (
@@ -20,7 +20,7 @@ const (
 )
 
 var (
-	_log = log.WithField("plugin", PLUGIN)
+	_log = log.With().Str("plugin", PLUGIN).Logger()
 )
 
 type QuoteData struct {
@@ -56,7 +56,9 @@ func (qd *QuoteData) LoadFile(fileName string) (*QuoteData, error) {
 	if err != nil {
 		return qd, err
 	}
-	_log.WithField("filename", fileName).Debug("Quotes loaded from file")
+	_log.Debug().
+		Str("filename", fileName).
+		Msg("Quotes loaded from file")
 	return qd, err
 }
 
@@ -85,10 +87,10 @@ func (qd *QuoteData) SaveFile(fileName string) error {
 	if err != nil {
 		return err
 	}
-	_log.WithFields(log.Fields{
-		"bytes":    n,
-		"filename": fileName,
-	}).Debug("File saved")
+	_log.Debug().
+		Str("filename", fileName).
+		Int("bytes", n).
+		Msg("File saved")
 	return nil
 }
 
@@ -191,7 +193,7 @@ func (qd *QuoteData) Reset() {
 }
 
 func (qd *QuoteData) ResetAndSave() {
-	if "" == qd.FileName {
+	if qd.FileName == "" {
 		return
 	}
 	qd.Reset()

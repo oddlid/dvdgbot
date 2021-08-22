@@ -3,7 +3,7 @@ package quoteshuffle
 import (
 	"testing"
 
-	log "github.com/sirupsen/logrus"
+	"github.com/rs/zerolog"
 )
 
 const (
@@ -11,7 +11,7 @@ const (
 )
 
 func init() {
-	log.SetLevel(log.DebugLevel)
+	zerolog.SetGlobalLevel(zerolog.DebugLevel)
 }
 
 func TestShuffle(t *testing.T) {

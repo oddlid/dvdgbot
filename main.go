@@ -11,7 +11,8 @@ import (
 	_ "github.com/oddlid/dvdgbot/morse"
 	_ "github.com/oddlid/dvdgbot/timestamp"
 	_ "github.com/oddlid/dvdgbot/xkcdbot"
-	log "github.com/sirupsen/logrus"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
 	//"github.com/oddlid/dvdgbot/userwatch"
 )
@@ -84,76 +85,86 @@ func main() {
 	app.Usage = "Run irc bot"
 	app.Flags = []cli.Flag{
 		&cli.StringFlag{
-			Name:    "server, s",
+			Name:    "server",
+			Aliases: []string{"s"},
 			Usage:   "IRC server `address`",
 			Value:   DEF_ADDR,
 			EnvVars: []string{"IRC_SERVER"},
 		},
 		&cli.StringFlag{
-			Name:    "user, u",
+			Name:    "user",
+			Aliases: []string{"u"},
 			Usage:   "IRC `username`",
 			Value:   DEF_USER,
 			EnvVars: []string{"IRC_USER"},
 		},
 		&cli.StringFlag{
-			Name:    "nick, n",
+			Name:    "nick",
+			Aliases: []string{"n"},
 			Usage:   "IRC `nick`",
 			Value:   DEF_NICK,
 			EnvVars: []string{"IRC_NICK"},
 		},
 		&cli.StringFlag{
-			Name:    "password, p",
+			Name:    "password",
+			Aliases: []string{"p"},
 			Usage:   "IRC server `password`",
 			EnvVars: []string{"IRC_PASS"},
 		},
 		&cli.StringSliceFlag{
-			Name:  "channel, c",
-			Usage: "Channel to join. May be repeated. Specify \"#chan passwd\" if a channel needs a password.",
+			Name:    "channel",
+			Aliases: []string{"c"},
+			Usage:   "Channel to join. May be repeated. Specify \"#chan passwd\" if a channel needs a password.",
 		},
 		&cli.BoolFlag{
-			Name:    "tls, t",
+			Name:    "tls",
+			Aliases: []string{"t"},
 			Usage:   "Use secure TLS connection",
 			Value:   true,
 			EnvVars: []string{"IRC_TLS"},
 		},
 		&cli.StringFlag{
-			Name:  "log-level, l",
-			Value: "info",
-			Usage: "Log `level` (options: debug, info, warn, error, fatal, panic)",
+			Name:    "log-level",
+			Aliases: []string{"l"},
+			Value:   "info",
+			Usage:   "Log `level` (options: debug, info, warn, error, fatal, panic)",
 		},
 		&cli.BoolFlag{
-			Name:    "debug, d",
+			Name:    "debug",
+			Aliases: []string{"d"},
 			Usage:   "Run in debug mode",
 			EnvVars: []string{"DEBUG"},
 		},
 	}
 	app.Before = func(c *cli.Context) error {
-		//log.SetOutput(os.Stderr) // this is the default anyways, from Logrus package
-
-		log.SetFormatter(&log.TextFormatter{
-			DisableTimestamp: false,
-			FullTimestamp:    true,
-		})
-
-		if !c.IsSet("log-level") && !c.IsSet("l") && c.Bool("debug") {
-			log.SetLevel(log.DebugLevel)
+		zerolog.TimeFieldFormat = "2006-01-02T15:04:05.999-07:00"
+		if c.Bool("debug") {
+			zerolog.SetGlobalLevel(zerolog.DebugLevel)
 		} else {
-			level, err := log.ParseLevel(c.String("log-level"))
-			if err != nil {
-				log.Fatal(err.Error())
+			if c.IsSet("log-level") || c.IsSet("l") {
+				level, err := zerolog.ParseLevel(c.String("log-level"))
+				if err != nil {
+					log.Error().Err(err).Send()
+				} else {
+					zerolog.SetGlobalLevel(level)
+				}
+			} else {
+				zerolog.SetGlobalLevel(zerolog.InfoLevel)
 			}
-			log.SetLevel(level)
 		}
 
-		// This didn't give me the results I was after, so leaving it commented for reference
-		// Overwrite STD logger used in foreign packages
-		//stdLog.SetOutput(log.StandardLogger().WriterLevel(log.GetLevel()))
-		// Or:
-		//stdLog.SetOutput(log.StandardLogger().Writer())
+		// I had hoped this could wrap the logging from the underlying libs, but it seems they log
+		// with just fmt.Println() or something, so this does nothing
+		//slog := zerolog.New(os.Stdout).With().Logger()
+		//stdlog.SetFlags(0)
+		//stdlog.SetOutput(slog)
 
 		return nil
 	}
 
 	app.Action = entryPoint
-	app.Run(os.Args)
+	err := app.Run(os.Args)
+	if err != nil {
+		log.Error().Err(err).Send()
+	}
 }

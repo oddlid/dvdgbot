@@ -16,6 +16,10 @@ endif
 $(BINARY): $(SOURCES) $(DEPS)
 	env CGO_ENABLED=0 go build ${LDFLAGS} -o $@ .
 
+.PHONY: run
+run:
+	env DEBUG=1 go run .
+
 .PHONY: install
 install:
 	env CGO_ENABLED=0 go install ${LDFLAGS} ./...

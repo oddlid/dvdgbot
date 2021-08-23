@@ -72,7 +72,6 @@ type WatchData struct {
 }
 
 func InitBot(cfg *irc.Config, b *bot.Bot, conn *ircevent.Connection, cfgfile string) error {
-	//_log.Debug("Initializing UserWatch...")
 	_log.Debug().
 		Msg("Initializing UserWatch")
 	_cfg = cfg

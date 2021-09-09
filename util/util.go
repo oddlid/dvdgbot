@@ -12,7 +12,7 @@ var _log = log.With().Str("package", "util").Logger()
 func EnvDefStr(key, fallback string) string {
 	val, found := os.LookupEnv(key)
 	if !found {
-		_log.Warn().
+		_log.Debug().
 			Str("func", "EnvDefStr").
 			Str("env_key", key).
 			Str("fallback", fallback).
@@ -25,7 +25,7 @@ func EnvDefStr(key, fallback string) string {
 func EnvDefInt(key string, fallback int) int {
 	val, found := os.LookupEnv(key)
 	if !found {
-		_log.Warn().
+		_log.Debug().
 			Str("func", "EnvDefInt").
 			Str("env_key", key).
 			Int("fallback", fallback).

@@ -25,7 +25,9 @@ ARG BOT_USER
 
 RUN addgroup -g 1000 ${BOT_USER} && adduser -u 1000 -G ${BOT_USER} -D ${BOT_USER}
 
-RUN apk add --no-cache --update ca-certificates \
+RUN apk add --no-cache --update \
+		ca-certificates \
+		tzdata \
 		&& rm -rf /var/cache/apk/*
 
 COPY --from=builder /go/src/github.com/oddlid/dvdgbot/${BUILD_BIN} /usr/local/bin/

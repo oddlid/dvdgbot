@@ -1,3 +1,5 @@
+//go:build ignore
+
 /*
 This file exists only because ´date´ in OSX can't print
 a proper RFC3339 date, so I made this hack.

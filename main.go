@@ -18,16 +18,16 @@ import (
 )
 
 const (
-	DEF_ADDR string = "irc.oftc.net:6697"
-	DEF_USER string = "leetbot"
-	DEF_NICK string = "leetbot"
+	defaultAddress string = "irc.oftc.net:6697"
+	defaultUser    string = "leetbot"
+	defaultNick    string = "leetbot"
 )
 
 var (
-	COMMIT_ID  string
-	BUILD_DATE string
-	VERSION    string
-	BIN_NAME   string
+	CommitID   string
+	BuildDate  string
+	Version    string
+	BinaryName string
 )
 
 //func envDefStr(key, fallback string) string {
@@ -65,16 +65,16 @@ func entryPoint(ctx *cli.Context) error {
 
 	// If not using neither leet nor userwatch, you can comment out both ways to setup above,
 	// including the line with "irc.Run(nil)", and replace it with the below:
-	//irc.Run(c)
+	// irc.Run(c)
 
 	return nil
 }
 
 func main() {
 	app := cli.NewApp()
-	app.Name = BIN_NAME
-	app.Version = fmt.Sprintf("%s_%s (Compiled: %s)", VERSION, COMMIT_ID, BUILD_DATE)
-	app.Compiled, _ = time.Parse(time.RFC3339, BUILD_DATE)
+	app.Name = BinaryName
+	app.Version = fmt.Sprintf("%s_%s (Compiled: %s)", Version, CommitID, BuildDate)
+	app.Compiled, _ = time.Parse(time.RFC3339, BuildDate)
 	app.Copyright = fmt.Sprintf("(C) 2018 - %d, Odd Eivind Ebbesen", time.Now().Year())
 	app.Authors = []*cli.Author{
 		{
@@ -88,21 +88,21 @@ func main() {
 			Name:    "server",
 			Aliases: []string{"s"},
 			Usage:   "IRC server `address`",
-			Value:   DEF_ADDR,
+			Value:   defaultAddress,
 			EnvVars: []string{"IRC_SERVER"},
 		},
 		&cli.StringFlag{
 			Name:    "user",
 			Aliases: []string{"u"},
 			Usage:   "IRC `username`",
-			Value:   DEF_USER,
+			Value:   defaultUser,
 			EnvVars: []string{"IRC_USER"},
 		},
 		&cli.StringFlag{
 			Name:    "nick",
 			Aliases: []string{"n"},
 			Usage:   "IRC `nick`",
-			Value:   DEF_NICK,
+			Value:   defaultNick,
 			EnvVars: []string{"IRC_NICK"},
 		},
 		&cli.StringFlag{
@@ -155,9 +155,9 @@ func main() {
 
 		// I had hoped this could wrap the logging from the underlying libs, but it seems they log
 		// with just fmt.Println() or something, so this does nothing
-		//slog := zerolog.New(os.Stdout).With().Logger()
-		//stdlog.SetFlags(0)
-		//stdlog.SetOutput(slog)
+		// slog := zerolog.New(os.Stdout).With().Logger()
+		// stdlog.SetFlags(0)
+		// stdlog.SetOutput(slog)
 
 		return nil
 	}

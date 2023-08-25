@@ -11,15 +11,15 @@ import (
 
 type Channel struct {
 	l             zerolog.Logger
-	tmpNicks      []string // used for storing who participated in a specific round. Reset after calculation.
 	Users         UserMap  `json:"users"`                  // string key is nick
 	Name          string   `json:"channel_name,omitempty"` // we need to duplicate this from the parent map key, so that the instance knows its own name
-	InspectionTax float64  `json:"inspection_tax"`         // percentage, but no check if outside of 0-100
-	OvershootTax  int      `json:"overshoot_tax"`          // interval for how much to deduct if user scores past target
-	InspectAlways bool     `json:"inspect_always"`         // if false, only inspect if random value between 0 and 6 matches current weekday
-	TaxLoners     bool     `json:"tax_loners"`             // If to inspect and tax when only one contestant in a round
-	PostTaxFail   bool     `json:"post_tax_fail"`          // If to post to channel why taxation does NOT happen
+	tmpNicks      []string // used for storing who participated in a specific round. Reset after calculation.
+	InspectionTax float64  `json:"inspection_tax"` // percentage, but no check if outside of 0-100
+	OvershootTax  int      `json:"overshoot_tax"`  // interval for how much to deduct if user scores past target
 	sync.RWMutex
+	InspectAlways bool `json:"inspect_always"` // if false, only inspect if random value between 0 and 6 matches current weekday
+	TaxLoners     bool `json:"tax_loners"`     // If to inspect and tax when only one contestant in a round
+	PostTaxFail   bool `json:"post_tax_fail"`  // If to post to channel why taxation does NOT happen
 }
 
 func (c *Channel) get(nick string) *User {

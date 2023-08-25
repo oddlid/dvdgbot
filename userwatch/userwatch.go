@@ -54,15 +54,15 @@ var (
 )
 
 type User struct {
-	sync.RWMutex
 	Nick string `json:"-"` // used for internal access, not needed in storage
 	JMsg string `json:"jmsg,omitempty"`
 	QMsg string `json:"qmsg,omitempty"`
+	sync.RWMutex
 }
 
 type Channel struct {
-	sync.RWMutex
 	Users map[string]*User `json:"users"`
+	sync.RWMutex
 }
 
 type WatchData struct {

@@ -14,17 +14,17 @@ type ScoreTracker struct {
 }
 
 type User struct {
+	l         zerolog.Logger
 	LastEntry time.Time    `json:"last_entry"` // time of last !1337 post that resulted in a score, positive or negative
 	BestEntry time.Time    `json:"best_entry"` // tighhtest to 1337, or whatever...
+	Nick      string       `json:"nick"`       // duplicate of map key, but we need to have it here as well sometimes
 	Taxes     ScoreTracker `json:"taxes"`      // hos much tax over time
 	Bonuses   ScoreTracker `json:"bonuses"`    // how much bonuses over time
 	Misses    ScoreTracker `json:"misses"`     // how many times have the user been early or late
-	l         zerolog.Logger
-	Nick      string `json:"nick"`  // duplicate of map key, but we need to have it here as well sometimes
-	Points    int    `json:"score"` // current points total
-	didTry    bool
-	Locked    bool `json:"locked"` // true if the user has reached the target limit
+	Points    int          `json:"score"`      // current points total
 	sync.RWMutex
+	didTry bool
+	Locked bool `json:"locked"` // true if the user has reached the target limit
 }
 
 type (

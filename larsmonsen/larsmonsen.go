@@ -10,16 +10,16 @@ import (
 )
 
 const (
-	PLUGIN     = "LarsMonsen"
-	FACTS_FILE = "/tmp/larsmonsenfacts.json"
-	PATTERN    = "(?i)\\b(lars|monsen)\\b"
-	CMD_NAME   = "larsmonsen"
+	plugin    = "LarsMonsen"
+	factsFile = "/tmp/larsmonsenfacts.json"
+	pattern   = "(?i)\\b(lars|monsen)\\b"
+	cmdName   = "larsmonsen"
 )
 
 var (
 	qd   *quoteshuffle.QuoteData
-	re   = regexp.MustCompile(PATTERN)
-	_log = log.With().Str("plugin", PLUGIN).Logger()
+	re   = regexp.MustCompile(pattern)
+	_log = log.With().Str("plugin", plugin).Logger()
 )
 
 func larsmonsen(command *bot.PassiveCmd) (string, error) {
@@ -31,12 +31,12 @@ func larsmonsen(command *bot.PassiveCmd) (string, error) {
 
 func init() {
 	var err error
-	qd, err = quoteshuffle.New(util.EnvDefStr("LARSMONSENFACTS_FILE", FACTS_FILE))
+	qd, err = quoteshuffle.New(util.EnvDefStr("LARSMONSENFACTS_FILE", factsFile))
 	if err != nil {
 		_log.Error().
 			Err(err).
 			Msg("Error loading facts file")
 		return
 	}
-	bot.RegisterPassiveCommand(CMD_NAME, larsmonsen)
+	bot.RegisterPassiveCommand(cmdName, larsmonsen)
 }

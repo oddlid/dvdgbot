@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	TST_CHAN = "#blackhole"
+	testChannel = "#blackhole"
 )
 
 var (
@@ -35,19 +35,19 @@ func getData() *ScoreData {
 	}
 
 	// Fill with some test data if empty
-	//fmt.Println("Creating Oddlid")
-	//o := _scoreData.get(TST_CHAN).get("Oddlid")
-	//fmt.Println("Creating Tord")
-	//t := _scoreData.get(TST_CHAN).get("Tord")
-	//fmt.Println("Creating Snelhest")
-	//s := _scoreData.get(TST_CHAN).get("Snelhest")
-	//fmt.Println("Creating bAAAArd")
-	//b := _scoreData.get(TST_CHAN).get("bAAAArd")
+	// fmt.Println("Creating Oddlid")
+	// o := _scoreData.get(TST_CHAN).get("Oddlid")
+	// fmt.Println("Creating Tord")
+	// t := _scoreData.get(TST_CHAN).get("Tord")
+	// fmt.Println("Creating Snelhest")
+	// s := _scoreData.get(TST_CHAN).get("Snelhest")
+	// fmt.Println("Creating bAAAArd")
+	// b := _scoreData.get(TST_CHAN).get("bAAAArd")
 
-	//o.addScore(10)
-	//t.addScore(8)
-	//s.addScore(6)
-	//b.addScore(4)
+	// o.addScore(10)
+	// t.addScore(8)
+	// s.addScore(6)
+	// b.addScore(4)
 
 	nicks := []string{
 		"Oddlid",
@@ -61,7 +61,7 @@ func getData() *ScoreData {
 
 	for idx, nick := range nicks {
 		points := idx * 2
-		_scoreData.get(TST_CHAN).get(nick).score(points, time.Now())
+		_scoreData.get(testChannel).get(nick).score(points, time.Now())
 	}
 
 	return _scoreData
@@ -85,7 +85,7 @@ func TestSave(t *testing.T) {
 func TestInspection(t *testing.T) {
 	zerolog.SetGlobalLevel(zerolog.DebugLevel)
 	sd := getData()
-	c := sd.get(TST_CHAN)
+	c := sd.get(testChannel)
 	c.InspectionTax = 50.14 // % of total points for the user with the least points in the current round
 	for k := range c.Users {
 		c.addNickForRound(k) // adds to c.tmpNicks
@@ -110,7 +110,7 @@ func TestInspection(t *testing.T) {
 func TestInspectLoner(t *testing.T) {
 	zerolog.SetGlobalLevel(zerolog.DebugLevel)
 	sd := getData()
-	c := sd.get(TST_CHAN)
+	c := sd.get(testChannel)
 	c.InspectionTax = 100.0 // % of total points for the user with the least points in the current round
 	rand.Seed(time.Now().UnixNano())
 	nick := "Oddlid"
@@ -143,26 +143,26 @@ func TestTaxFail(t *testing.T) {
 	zerolog.SetGlobalLevel(zerolog.DebugLevel)
 	rand.Seed(time.Now().UnixNano())
 	sd := getData()
-	c := sd.get(TST_CHAN)
+	c := sd.get(testChannel)
 	c.InspectionTax = 50.14 // % of total points for the user with the least points in the current round
 	c.PostTaxFail = true
 	for k := range c.Users {
 		c.addNickForRound(k) // adds to c.tmpNicks
 	}
 
-	if c.Name != TST_CHAN {
-		t.Errorf("Expected channel name %q, got %q", TST_CHAN, c.Name)
+	if c.Name != testChannel {
+		t.Errorf("Expected channel name %q, got %q", testChannel, c.Name)
 	}
 
 	c.randomInspect()
 }
 
-func TestStats(t *testing.T) {
+func TestStats(_ *testing.T) {
 	zerolog.SetGlobalLevel(zerolog.DebugLevel)
 	rand.Seed(time.Now().UnixNano())
 	sd := getData()
 
-	u := sd.get(TST_CHAN).get("Oddlid")
+	u := sd.get(testChannel).get("Oddlid")
 	u.setLocked(true)
 	u.setLastEntry(time.Now())
 	u.setScore(getTargetScore())
@@ -179,7 +179,7 @@ func TestStats(t *testing.T) {
 		},
 	)
 
-	fmt.Printf("%s", sd.stats(TST_CHAN))
+	fmt.Printf("%s", sd.stats(testChannel))
 }
 
 func TestGetTargetScore(t *testing.T) {
@@ -203,7 +203,7 @@ func TestGetTargetScore(t *testing.T) {
 	// Now make sure value is recalculated after resetting _targetScore
 	_targetScore = 0
 	_hour = 12
-	_minute = 04 // have a prefixing 0 to make sure it's included in the result
+	_minute = 0o4 // have a prefixing 0 to make sure it's included in the result
 
 	exp := 1204
 	score := getTargetScore()
@@ -212,14 +212,13 @@ func TestGetTargetScore(t *testing.T) {
 	} else {
 		t.Logf("Target score after manual intervention is: %d", score)
 	}
-
 }
 
 func TestWinner(t *testing.T) {
 	zerolog.SetGlobalLevel(zerolog.DebugLevel)
 	rand.Seed(time.Now().UnixNano())
 	sd := getData()
-	c := sd.get(TST_CHAN)
+	c := sd.get(testChannel)
 
 	nick := "Oddlid"
 	user := c.get(nick)
@@ -247,7 +246,7 @@ func TestUserSort(t *testing.T) {
 	zerolog.SetGlobalLevel(zerolog.DebugLevel)
 	rand.Seed(time.Now().UnixNano())
 	sd := getData()
-	c := sd.get(TST_CHAN)
+	c := sd.get(testChannel)
 
 	nicks := c.nickList()
 	targetScore := getTargetScore()
@@ -379,7 +378,7 @@ func TestOverShooters(t *testing.T) {
 	zerolog.SetGlobalLevel(zerolog.DebugLevel)
 	rand.Seed(time.Now().UnixNano())
 	sd := getData()
-	c := sd.get(TST_CHAN)
+	c := sd.get(testChannel)
 	c.OvershootTax = 5
 	limit := getTargetScore()
 
@@ -463,7 +462,7 @@ func TestRaceToFinish(t *testing.T) {
 	zerolog.SetGlobalLevel(zerolog.DebugLevel)
 	rand.Seed(time.Now().UnixNano())
 	sd := getData()
-	c := sd.get(TST_CHAN)
+	c := sd.get(testChannel)
 	c.OvershootTax = 15
 	limit := getTargetScore()
 	nicks := c.nickList()
@@ -530,7 +529,7 @@ func TestRaceToFinish(t *testing.T) {
 		} else {
 			fmt.Fprintf(&sb, "%s was randomly selected for taxation, but got off with a slap on the wrist ;)", nick)
 		}
-		//msgChan(channel, sb.String())
+		// msgChan(channel, sb.String())
 		t.Log(sb.String())
 	}
 
@@ -555,7 +554,7 @@ func TestCalcScore(t *testing.T) {
 	zerolog.SetGlobalLevel(zerolog.DebugLevel)
 	rand.Seed(time.Now().UnixNano())
 	sd := getData()
-	c := sd.get(TST_CHAN)
+	c := sd.get(testChannel)
 	c.OvershootTax = 15
 	limit := getTargetScore()
 	nicks := c.nickList()
@@ -589,14 +588,13 @@ func TestCalcScore(t *testing.T) {
 	}
 
 	t.Logf("\n%s", sd.calcScore(c))
-
 }
 
 func TestSetBestEntry(t *testing.T) {
 	zerolog.SetGlobalLevel(zerolog.DebugLevel)
 	rand.Seed(time.Now().UnixNano())
 	sd := getData()
-	c := sd.get(TST_CHAN)
+	c := sd.get(testChannel)
 
 	user := c.get("Oddlid")
 
@@ -640,8 +638,7 @@ func TestBonusConfigCalc(t *testing.T) {
 		"00001337666",
 	}
 
-	exp := 0
-	got := 0
+	var exp, got int
 
 	bc1 := BonusConfig{
 		SubString:    "1337",
@@ -662,7 +659,7 @@ func TestBonusConfigCalc(t *testing.T) {
 
 	for i := 0; i <= 8; i++ {
 		exp = i * bc1.StepPoints
-		//got = bcs.calc(stamps[i])
+		// got = bcs.calc(stamps[i])
 		brs := bcs.calc(stamps[i])
 		got = brs.TotalBonus()
 		if got != exp {
@@ -675,7 +672,7 @@ func TestBonusConfigCalc(t *testing.T) {
 
 	exp = 18
 	ts := stamps[11]
-	//got = bcs.calc(ts)
+	// got = bcs.calc(ts)
 	brs := bcs.calc(ts)
 	got = brs.TotalBonus()
 	if got != exp {
@@ -686,7 +683,7 @@ func TestBonusConfigCalc(t *testing.T) {
 
 	exp = 28
 	ts = stamps[10]
-	//got = bcs.calc(ts)
+	// got = bcs.calc(ts)
 	brs = bcs.calc(ts)
 	got = brs.TotalBonus()
 	if got != exp {
@@ -697,7 +694,7 @@ func TestBonusConfigCalc(t *testing.T) {
 
 	exp = 68
 	ts = stamps[12]
-	//got = bcs.calc(ts)
+	// got = bcs.calc(ts)
 	brs = bcs.calc(ts)
 	got = brs.TotalBonus()
 	if got != exp {
@@ -705,7 +702,6 @@ func TestBonusConfigCalc(t *testing.T) {
 	} else {
 		t.Logf("%s gives %d points bonus", ts, got)
 	}
-
 }
 
 func TestGetCronTime(t *testing.T) {
@@ -713,7 +709,7 @@ func TestGetCronTime(t *testing.T) {
 	if h != 13 || m != 35 {
 		t.Errorf("Expected 13 35, but got: %d %d", h, m)
 	}
-	h, m = getCronTime(12, 00, -3*time.Minute)
+	h, m = getCronTime(12, 0o0, -3*time.Minute)
 	if h != 11 || m != 57 {
 		t.Errorf("Expected 11 57, but got: %d %d", h, m)
 	}
@@ -738,33 +734,33 @@ func TestLastTsInCurrentRound(t *testing.T) {
 	zerolog.SetGlobalLevel(zerolog.DebugLevel)
 	rand.Seed(time.Now().UnixNano())
 	sd := getData()
-	c := sd.get(TST_CHAN)
+	c := sd.get(testChannel)
 	u := c.get("Oddlid")
 
 	now := time.Now()
 	u.setLastEntry(now.AddDate(0, 0, -1)) // set to 1 day before now
 
-	//t.Logf("User last entry: %+v", u.getLastEntry())
+	// t.Logf("User last entry: %+v", u.getLastEntry())
 
-	if u.lastTsInCurrentRound(now) {
+	if u.lastTSInCurrentRound(now) {
 		t.Error("1 day after lastEntry should not count as being in current round")
 	}
 
 	u.setLastEntry(now)
 
-	if !u.lastTsInCurrentRound(now) {
+	if !u.lastTSInCurrentRound(now) {
 		t.Error("Equal times should count as in current round")
 	}
-	if !u.lastTsInCurrentRound(now.Add(1 * time.Minute)) {
+	if !u.lastTSInCurrentRound(now.Add(1 * time.Minute)) {
 		t.Error("1 minute after lastEntry should count as in current round")
 	}
-	if !u.lastTsInCurrentRound(now.Add(2 * time.Minute)) {
+	if !u.lastTSInCurrentRound(now.Add(2 * time.Minute)) {
 		t.Error("2 minutes after lastEntry should count as in current round")
 	}
-	if !u.lastTsInCurrentRound(now.Add(3 * time.Minute)) {
+	if !u.lastTSInCurrentRound(now.Add(3 * time.Minute)) {
 		t.Error("3 minutes after lastEntry should count as in current round")
 	}
-	if u.lastTsInCurrentRound(now.Add(4 * time.Minute)) {
+	if u.lastTSInCurrentRound(now.Add(4 * time.Minute)) {
 		t.Error("4 minutes after lastEntry should NOT count as in current round")
 	}
 }
@@ -779,7 +775,7 @@ func BenchmarkGetWinnerRank(b *testing.B) {
 	zerolog.SetGlobalLevel(zerolog.DebugLevel)
 	rand.Seed(time.Now().UnixNano())
 	sd := getData()
-	c := sd.get(TST_CHAN)
+	c := sd.get(testChannel)
 	limit := getTargetScore()
 
 	for _, u := range c.Users {
@@ -789,7 +785,7 @@ func BenchmarkGetWinnerRank(b *testing.B) {
 	}
 
 	rank := 0
-	//b.ResetTimer()
+	// b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		for nick := range c.Users {
 			rank = c.getWinnerRank(nick)
@@ -803,7 +799,7 @@ func BenchmarkGetWinnerRankCached(b *testing.B) {
 	zerolog.SetGlobalLevel(zerolog.DebugLevel)
 	rand.Seed(time.Now().UnixNano())
 	sd := getData()
-	c := sd.get(TST_CHAN)
+	c := sd.get(testChannel)
 	limit := getTargetScore()
 
 	for _, u := range c.Users {
@@ -818,7 +814,7 @@ func BenchmarkGetWinnerRankCached(b *testing.B) {
 	us.sortByLastEntryAsc()
 
 	rank := 0
-	//b.ResetTimer()
+	// b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		for nick := range c.Users {
 			rank = us.getIndex(nick)
@@ -844,7 +840,7 @@ func BenchmarkGetExistingUser(b *testing.B) {
 	zerolog.SetGlobalLevel(zerolog.DebugLevel)
 	rand.Seed(time.Now().UnixNano())
 	sd := getData()
-	c := sd.get(TST_CHAN)
+	c := sd.get(testChannel)
 
 	nick := "Oddlid"
 
@@ -860,7 +856,7 @@ func BenchmarkGetNonExistingUser(b *testing.B) {
 	zerolog.SetGlobalLevel(zerolog.DebugLevel)
 	rand.Seed(time.Now().UnixNano())
 	sd := getData()
-	c := sd.get(TST_CHAN)
+	c := sd.get(testChannel)
 
 	nick := "Oddlid"
 	delete(c.Users, nick)
@@ -967,7 +963,7 @@ func BenchmarkBonusConfigCalc(b *testing.B) {
 
 	for _, ts := range stamps {
 		for i := 0; i < b.N; i++ {
-			//got = bcs.calc(ts)
+			// got = bcs.calc(ts)
 			brs := bcs.calc(ts)
 			got = brs.TotalBonus()
 		}
@@ -983,12 +979,12 @@ func BenchmarkTryScore(b *testing.B) {
 	sd := newScoreData()
 	channel := "#channel"
 	nicks := []struct {
-		nick string
 		ts   time.Time
+		nick string
 	}{
-		{"Odd_01", tm("2019-04-07T13:37:00.000001337Z")},
-		{"Odd_02", tm("2019-04-07T13:37:00.000013370Z")},
-		{"Odd_03", tm("2019-04-07T13:37:00.000133700Z")},
+		{nick: "Odd_01", ts: tm("2019-04-07T13:37:00.000001337Z")},
+		{nick: "Odd_02", ts: tm("2019-04-07T13:37:00.000013370Z")},
+		{nick: "Odd_03", ts: tm("2019-04-07T13:37:00.000133700Z")},
 	}
 	c := sd.get(channel)
 	var bres bool
@@ -999,7 +995,7 @@ func BenchmarkTryScore(b *testing.B) {
 		for _, n := range nicks {
 			bres, sres = sd.tryScore(c, c.get(n.nick), n.ts)
 		}
-		//c.MergeScoresForRound(c.GetScoresForRound())
+		// c.MergeScoresForRound(c.GetScoresForRound())
 		c.clearNicksForRound()
 	}
 	boolVar = bres
@@ -1068,7 +1064,7 @@ func BenchmarkLeet(b *testing.B) {
 		Args:    nil,
 	}
 
-	//var result string
+	// var result string
 	for i := 0; i < b.N; i++ {
 		cmd.User.Nick = fmt.Sprintf("Nick_%d", i)
 		_, err := leet(cmd)
@@ -1076,7 +1072,7 @@ func BenchmarkLeet(b *testing.B) {
 			b.Log(err)
 			b.FailNow()
 		}
-		//b.Log(msg)
+		// b.Log(msg)
 	}
 }
 

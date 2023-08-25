@@ -4,28 +4,27 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"strconv"
 	"strings"
 )
 
 type BonusConfig struct {
-	StepPoints   int    // points to multiply substring position with
-	NoStepPoints int    // points to return for match when UseStep == false
-	PrefixChar   rune   // the char required as only prefix for max bonus, e.g. '0'
-	UseStep      bool   // if to multiply points for each position to the right in string
 	SubString    string // string to search for in timestamp
 	Greeting     string // Message from bot to user upon bonus hit
+	StepPoints   int    // points to multiply substring position with
+	NoStepPoints int    // points to return for match when UseStep == false
 	matchPos     int    // internal index for substring match position
+	PrefixChar   rune   // the char required as only prefix for max bonus, e.g. '0'
+	UseStep      bool   // if to multiply points for each position to the right in string
 }
 
 type BonusConfigs []BonusConfig
 
 type BonusReturn struct {
-	Points int
 	Match  string
 	Msg    string
+	Points int
 }
 
 type BonusReturns []BonusReturn
@@ -44,7 +43,7 @@ func (brs BonusReturns) TotalBonus() int {
 
 func (brs BonusReturns) String() string {
 	var sb strings.Builder
-	//sb.WriteString(fmt.Sprintf("+%d points bonus! : ", brs.TotalBonus()))
+	// sb.WriteString(fmt.Sprintf("+%d points bonus! : ", brs.TotalBonus()))
 	fmt.Fprintf(&sb, "+%d points bonus! : ", brs.TotalBonus())
 	for i, br := range brs {
 		if i > 0 {
@@ -55,12 +54,12 @@ func (brs BonusReturns) String() string {
 	return sb.String()
 }
 
-func (bd BonusConfig) hasHomogenicPrefix(ts string) bool {
+func (bc BonusConfig) hasHomogenicPrefix(ts string) bool {
 	for i, r := range ts {
-		if r != bd.PrefixChar {
+		if r != bc.PrefixChar {
 			return false
 		}
-		if i >= bd.matchPos-1 {
+		if i >= bc.matchPos-1 {
 			break
 		}
 	}
@@ -84,22 +83,34 @@ func (bc BonusConfig) calc(ts string) BonusReturn {
 
 	// There is no substring match, so we return 0 and don't bother with other checks
 	if bc.matchPos == -1 {
-		//return 0
-		return BonusReturn{0, "", ""}
+		// return 0
+		return BonusReturn{
+			Match:  "",
+			Msg:    "",
+			Points: 0,
+		}
 	}
 
 	// We have a match, but don't care about the substring position,
-	//so we return points for any match without calculation
+	// so we return points for any match without calculation
 	if !bc.UseStep {
-		//return bc.NoStepPoints
-		return BonusReturn{bc.NoStepPoints, bc.SubString, bc.Greeting}
+		// return bc.NoStepPoints
+		return BonusReturn{
+			Points: bc.NoStepPoints,
+			Match:  bc.SubString,
+			Msg:    bc.Greeting,
+		}
 	}
 
 	// We have a match, we DO care about position, but position is
 	// 0, so we don't need to calculate, and can return StepPoints directly
 	if bc.matchPos == 0 {
-		//return bc.StepPoints
-		return BonusReturn{bc.StepPoints, bc.SubString, bc.Greeting}
+		// return bc.StepPoints
+		return BonusReturn{
+			Points: bc.StepPoints,
+			Match:  bc.SubString,
+			Msg:    bc.Greeting,
+		}
 	}
 
 	// We have a match, we DO care about position, and position is above 0,
@@ -107,13 +118,21 @@ func (bc BonusConfig) calc(ts string) BonusReturn {
 
 	// Position is not "purely prefixed" e.g. just zeros before the match
 	if !bc.hasHomogenicPrefix(ts) {
-		//return bc.StepPoints
-		return BonusReturn{bc.StepPoints, bc.SubString, bc.Greeting}
+		// return bc.StepPoints
+		return BonusReturn{
+			Points: bc.StepPoints,
+			Match:  bc.SubString,
+			Msg:    bc.Greeting,
+		}
 	}
 
 	// At this point, we know we have a match at position > 0, prefixed by only PrefixChar,
 	// so we calculate bonus and return
-	return BonusReturn{(bc.matchPos + 1) * bc.StepPoints, bc.SubString, bc.Greeting}
+	return BonusReturn{
+		Points: (bc.matchPos + 1) * bc.StepPoints,
+		Match:  bc.SubString,
+		Msg:    bc.Greeting,
+	}
 }
 
 func (bcs *BonusConfigs) add(bc BonusConfig) {
@@ -123,7 +142,7 @@ func (bcs *BonusConfigs) add(bc BonusConfig) {
 func (bcs BonusConfigs) calc(ts string) BonusReturns {
 	brs := make(BonusReturns, 0)
 	for _, bc := range bcs {
-		//brs = append(brs, bc.calc(ts))
+		// brs = append(brs, bc.calc(ts))
 		br := bc.calc(ts)
 		if br.Points > 0 {
 			brs = append(brs, br)
@@ -146,7 +165,7 @@ func (bcs BonusConfigs) hasValue(val int) (bool, *BonusConfig) {
 }
 
 func (bcs *BonusConfigs) load(r io.Reader) error {
-	jb, err := ioutil.ReadAll(r)
+	jb, err := io.ReadAll(r)
 	if err != nil {
 		return err
 	}

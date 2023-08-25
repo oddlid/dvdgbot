@@ -19,7 +19,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"sort"
 	"strings"
@@ -33,16 +32,16 @@ import (
 )
 
 const (
-	JOIN        string = "JOIN"
-	PART        string = "PART"
-	QUIT        string = "QUIT"
-	ADD         string = "ADD"
-	DEL         string = "DEL"
-	LS          string = "LS"
-	RELOAD      string = "RELOAD"
-	CLEAR       string = "CLEAR"
-	PLUGIN      string = "UserWatch"
-	DEF_CFGFILE string = "/tmp/userwatch.json"
+	cmdJoin   string = "JOIN"
+	cmdPart   string = "PART"
+	cmdQuit   string = "QUIT"
+	cmdAdd    string = "ADD"
+	cmdDel    string = "DEL"
+	cmdList   string = "LS"
+	cmdReload string = "RELOAD"
+	cmdClear  string = "CLEAR"
+	plugin    string = "UserWatch"
+	// defaultConfigFile string = "/tmp/userwatch.json"
 )
 
 var (
@@ -51,7 +50,7 @@ var (
 	_conn    *ircevent.Connection
 	_wd      *WatchData
 	_cfgfile string
-	_log     = log.With().Str("plugin", PLUGIN).Logger()
+	_log     = log.With().Str("plugin", plugin).Logger()
 )
 
 type User struct {
@@ -80,9 +79,9 @@ func InitBot(cfg *irc.Config, b *bot.Bot, conn *ircevent.Connection, cfgfile str
 	_cfgfile = cfgfile
 	reload() // initializes _wd
 
-	_conn.AddCallback(JOIN, onJOIN)
-	_conn.AddCallback(QUIT, onQUIT)
-	_conn.AddCallback(PART, onQUIT)
+	_conn.AddCallback(cmdJoin, onJOIN)
+	_conn.AddCallback(cmdQuit, onQUIT)
+	_conn.AddCallback(cmdPart, onQUIT)
 
 	register()
 
@@ -115,7 +114,7 @@ Examples:
   !userwatch %s MyNick
   !userwatch %s
 `,
-		ADD, m[0], m[1], DEL, m[0], m[1], LS, m[0], m[1], RELOAD, ADD, JOIN, "%s", DEL, LS, LS,
+		cmdAdd, m[0], m[1], cmdDel, m[0], m[1], cmdList, m[0], m[1], cmdReload, cmdAdd, cmdJoin, "%s", cmdDel, cmdList, cmdList,
 	)
 	bot.RegisterCommand(
 		"userwatch",
@@ -174,7 +173,7 @@ func (wd *WatchData) SaveFile(filename string) error {
 }
 
 func (wd *WatchData) Load(r io.Reader) error {
-	jb, err := ioutil.ReadAll(r)
+	jb, err := io.ReadAll(r)
 	if err != nil {
 		return err
 	}
@@ -338,22 +337,22 @@ func mtype(in, compare string) bool {
 func ls(channel, nick, msgtype string) string {
 	c := _wd.Get(channel)
 	if len(c.Users) == 0 {
-		return fmt.Sprintf("%s: No configured messages for channel %q", PLUGIN, channel)
+		return fmt.Sprintf("%s: No configured messages for channel %q", plugin, channel)
 	}
 	if nick == "" {
-		return fmt.Sprintf("%s nicks: %s", PLUGIN, strings.Join(c.Nicks(), ", "))
+		return fmt.Sprintf("%s nicks: %s", plugin, strings.Join(c.Nicks(), ", "))
 	}
 	if !c.Has(nick) {
-		return fmt.Sprintf("%s: No configured messages for nick %q", PLUGIN, nick)
+		return fmt.Sprintf("%s: No configured messages for nick %q", plugin, nick)
 	}
 	u := c.Get(nick)
-	str := fmt.Sprintf("%s: messages for %s:\n", PLUGIN, nick)
-	if mtype(msgtype, JOIN) {
-		str += fmt.Sprintf("  %s: %s\n", JOIN, u.JMsg)
-	} else if mtype(msgtype, QUIT) || mtype(msgtype, PART) {
-		str += fmt.Sprintf("  %s: %s\n", QUIT, u.QMsg)
+	str := fmt.Sprintf("%s: messages for %s:\n", plugin, nick)
+	if mtype(msgtype, cmdJoin) {
+		str += fmt.Sprintf("  %s: %s\n", cmdJoin, u.JMsg)
+	} else if mtype(msgtype, cmdQuit) || mtype(msgtype, cmdPart) {
+		str += fmt.Sprintf("  %s: %s\n", cmdQuit, u.QMsg)
 	} else {
-		str += fmt.Sprintf("  %s: %s\n  %s: %s\n", JOIN, u.JMsg, QUIT, u.QMsg)
+		str += fmt.Sprintf("  %s: %s\n  %s: %s\n", cmdJoin, u.JMsg, cmdQuit, u.QMsg)
 	}
 	return str
 }
@@ -372,20 +371,20 @@ func add(channel, nick, msgtype, msg string) (string, error) {
 		_log.Error().
 			Str("func", "add()").
 			Msg("Empty nick, msgtype or msg")
-		emsg := ADD + " Error: nick, message type and message has to be set"
+		emsg := cmdAdd + " Error: nick, message type and message has to be set"
 		return emsg, fmt.Errorf(emsg)
 	}
 
 	c := _wd.Get(channel)
 	u := c.Get(nick)
 
-	ret := fmt.Sprintf("%s: Set/updated %s message for nick %q", PLUGIN, "%s", nick)
-	if mtype(msgtype, JOIN) {
+	ret := fmt.Sprintf("%s: Set/updated %s message for nick %q", plugin, "%s", nick)
+	if mtype(msgtype, cmdJoin) {
 		u.SetJMsg(msg)
-		ret = fmt.Sprintf(ret, JOIN)
-	} else if mtype(msgtype, QUIT) || mtype(msgtype, PART) {
+		ret = fmt.Sprintf(ret, cmdJoin)
+	} else if mtype(msgtype, cmdQuit) || mtype(msgtype, cmdPart) {
 		u.SetQMsg(msg)
-		ret = fmt.Sprintf(ret, QUIT)
+		ret = fmt.Sprintf(ret, cmdQuit)
 	}
 	_wd.SaveFile(_cfgfile)
 	return ret, nil
@@ -409,18 +408,18 @@ func del(channel, nick, msgtype string) (string, error) {
 		}
 	}
 
-	ret := fmt.Sprintf("%s: Deleted %s message for nick %q", PLUGIN, "%s", nick)
-	if mtype(msgtype, JOIN) {
+	ret := fmt.Sprintf("%s: Deleted %s message for nick %q", plugin, "%s", nick)
+	if mtype(msgtype, cmdJoin) {
 		u.SetJMsg("")
-		ret = fmt.Sprintf(ret, JOIN)
+		ret = fmt.Sprintf(ret, cmdJoin)
 		cleanup()
-	} else if mtype(msgtype, QUIT) || mtype(msgtype, PART) {
+	} else if mtype(msgtype, cmdQuit) || mtype(msgtype, cmdPart) {
 		u.SetQMsg("")
-		ret = fmt.Sprintf(ret, QUIT)
+		ret = fmt.Sprintf(ret, cmdQuit)
 		cleanup()
 	} else if msgtype == "" {
 		delete(c.Users, nick)
-		ret = fmt.Sprintf("%s: Deleted nick %q", PLUGIN, nick)
+		ret = fmt.Sprintf("%s: Deleted nick %q", plugin, nick)
 	}
 
 	_wd.SaveFile(_cfgfile)
@@ -463,19 +462,19 @@ func userwatch(cmd *bot.Cmd) (string, error) {
 	args := safeArgs(3, cmd.Args) // 3 is the longest possible set of args
 	var retmsg string
 
-	if mtype(args[0], LS) {
+	if mtype(args[0], cmdList) {
 		return ls(cmd.Channel, args[1], args[2]), nil
-	} else if mtype(args[0], ADD) {
+	} else if mtype(args[0], cmdAdd) {
 		msg := strings.Join(cmd.Args[3:len(cmd.Args)], " ")
 		return add(cmd.Channel, args[1], args[2], msg)
-	} else if mtype(args[0], DEL) {
+	} else if mtype(args[0], cmdDel) {
 		return del(cmd.Channel, args[1], args[2])
-	} else if mtype(args[0], CLEAR) {
+	} else if mtype(args[0], cmdClear) {
 		clear()
-		retmsg = fmt.Sprintf("%s: DB cleared", PLUGIN)
-	} else if mtype(args[0], RELOAD) {
+		retmsg = fmt.Sprintf("%s: DB cleared", plugin)
+	} else if mtype(args[0], cmdReload) {
 		reload()
-		retmsg = fmt.Sprintf("%s: DB reloaded from disk", PLUGIN)
+		retmsg = fmt.Sprintf("%s: DB reloaded from disk", plugin)
 	}
 
 	return retmsg, nil

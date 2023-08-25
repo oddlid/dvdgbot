@@ -12,9 +12,7 @@ import (
 	"github.com/nishanths/go-xkcd/v2"
 )
 
-var (
-	xc *xkcd.Client
-)
+var xc *xkcd.Client
 
 func xkcdbot(cmd *bot.Cmd) (string, error) {
 	if len(cmd.Args) < 1 {
@@ -28,15 +26,15 @@ func xkcdbot(cmd *bot.Cmd) (string, error) {
 		}
 		id, err := strconv.Atoi(cmd.Args[1])
 		if err != nil {
-			return "ID for GET must be a number", nil
+			return "ID for GET must be a number", err
 		}
 		comic, err := xc.Get(context.Background(), id)
 		if err != nil {
-			return fmt.Sprintf("Error fetching ID #%d", id), nil
+			return fmt.Sprintf("Error fetching ID #%d", id), err
 		}
 		return comic.ImageURL, nil
 	// the Random() method seems to have disappeared in v2
-	//case "RANDOM":
+	// case "RANDOM":
 	//	comic, err := xc.Random()
 	//	if err != nil {
 	//		return "Error fetching random comic", nil
@@ -45,7 +43,7 @@ func xkcdbot(cmd *bot.Cmd) (string, error) {
 	case "LATEST":
 		comic, err := xc.Latest(context.Background())
 		if err != nil {
-			return "Error fetching latest comic", nil
+			return "Error fetching latest comic", err
 		}
 		return comic.ImageURL, nil
 	}
@@ -59,5 +57,6 @@ func init() {
 		"xkcd",
 		"Fetch an XKCD comic image",
 		"get <ID>|random|latest",
-		xkcdbot)
+		xkcdbot,
+	)
 }

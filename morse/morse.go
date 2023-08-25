@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	PLUGIN = "MorseConverter"
+	plugin = "MorseConverter"
 )
 
 func ascii2morse(input string) (string, error) {
@@ -32,7 +32,7 @@ func morse2ascii(morse string) (string, error) {
 
 func tomorse(cmd *bot.Cmd) (string, error) {
 	if len(cmd.Args) < 1 {
-		return fmt.Sprintf("%s: No input. Usage: !tomorse <input>", PLUGIN), nil
+		return fmt.Sprintf("%s: No input. Usage: !tomorse <input>", plugin), nil
 	}
 
 	morse, err := ascii2morse(strings.Join(cmd.Args, " "))
@@ -44,7 +44,7 @@ func tomorse(cmd *bot.Cmd) (string, error) {
 
 func frommorse(cmd *bot.Cmd) (string, error) {
 	if len(cmd.Args) < 1 {
-		return fmt.Sprintf("%s: No input. Usage: !frommorse <input>", PLUGIN), nil
+		return fmt.Sprintf("%s: No input. Usage: !frommorse <input>", plugin), nil
 	}
 
 	ascii, err := morse2ascii(strings.Join(cmd.Args, " "))

@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"strings"
 	"time"
@@ -13,11 +12,11 @@ import (
 )
 
 type ScoreData struct {
-	BotStart       time.Time           `json:"botstart"`
 	Channels       map[string]*Channel `json:"channels"`
+	l              zerolog.Logger
+	BotStart       time.Time `json:"botstart"`
 	saveInProgress bool
 	calcInProgress bool
-	l              zerolog.Logger
 }
 
 func newScoreData() *ScoreData {
@@ -40,7 +39,7 @@ func (s *ScoreData) isEmpty() bool {
 //}
 
 func (s *ScoreData) load(r io.Reader) error {
-	jb, err := ioutil.ReadAll(r)
+	jb, err := io.ReadAll(r)
 	if err != nil {
 		return err
 	}
@@ -65,7 +64,7 @@ func (s *ScoreData) loadFile(filename string) (*ScoreData, error) {
 
 func (s *ScoreData) save(w io.Writer) (int, error) {
 	jb, err := json.MarshalIndent(s, "", "\t")
-	//jb, err := json.Marshal(s)
+	// jb, err := json.Marshal(s)
 	if err != nil {
 		return 0, err
 	}
@@ -130,7 +129,7 @@ func (s *ScoreData) calcScore(c *Channel) string {
 	}
 
 	tax := func(w io.Writer, val int) {
-		if -1 == val {
+		if val == -1 {
 			return
 		}
 		if val == 0 {
@@ -216,7 +215,7 @@ func (s *ScoreData) calcScore(c *Channel) string {
 			continue
 		}
 		// a user can be marked as a winner from earlier rounds. We don't want to see those here.
-		if !user.lastTsInCurrentRound(now) {
+		if !user.lastTSInCurrentRound(now) {
 			continue
 		}
 		overshootTax := c.getOverShootTaxFor(getTargetScore(), user.getScore())
@@ -360,10 +359,10 @@ func (s *ScoreData) tryScore(c *Channel, u *User, t time.Time) (bool, string) {
 		missTmpl += fmt.Sprintf(" (but: %s)", brs)
 	}
 
-	if TF_EARLY == tf {
+	if tfEarly == tf {
 		u.addMiss()
 		return true, fmt.Sprintf(missTmpl, "early")
-	} else if TF_LATE == tf {
+	} else if tfLate == tf {
 		u.addMiss()
 		return true, fmt.Sprintf(missTmpl, "late")
 	}

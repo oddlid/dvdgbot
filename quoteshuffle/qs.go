@@ -7,7 +7,6 @@ This is mostly a new version of oddlid/rndlist with added support for loading/sa
 import (
 	"encoding/json"
 	"io"
-	"io/ioutil"
 	"math/rand"
 	"os"
 	"time"
@@ -19,9 +18,7 @@ const (
 	PLUGIN string = "QuoteShuffle"
 )
 
-var (
-	_log = log.With().Str("plugin", PLUGIN).Logger()
-)
+var _log = log.With().Str("plugin", PLUGIN).Logger()
 
 type QuoteData struct {
 	FileName string   `json:"-"`
@@ -39,7 +36,7 @@ func New(fileName string) (*QuoteData, error) {
 }
 
 func (qd *QuoteData) Load(r io.Reader) error {
-	jb, err := ioutil.ReadAll(r)
+	jb, err := io.ReadAll(r)
 	if err != nil {
 		return err
 	}
@@ -69,7 +66,7 @@ func (qd *QuoteData) LoadSelf() error {
 
 func (qd *QuoteData) Save(w io.Writer) (int, error) {
 	jb, err := json.MarshalIndent(qd, "", "\t")
-	//jb, err := json.Marshal(qd)
+	// jb, err := json.Marshal(qd)
 	if err != nil {
 		return 0, err
 	}
@@ -132,11 +129,11 @@ func (qd *QuoteData) Used() int {
 	return len(qd.Dst)
 }
 
-func (qd *QuoteData) rndId() int {
+func (qd *QuoteData) rndID() int {
 	return rand.Intn(len(qd.Src))
 }
 
-func (qd *QuoteData) validId(id int) bool {
+func (qd *QuoteData) validID(id int) bool {
 	if nil == qd.Src {
 		return false
 	}
@@ -148,7 +145,7 @@ func (qd *QuoteData) validId(id int) bool {
 
 func (qd *QuoteData) del(id int) {
 	qd.Src[id] = qd.Src[qd.Len()-1]
-	//qd.Src[qd.Len()-1] = "" // not really needed?
+	// qd.Src[qd.Len()-1] = "" // not really needed?
 	qd.Src = qd.Src[:qd.Len()-1]
 }
 
@@ -164,9 +161,9 @@ func (qd *QuoteData) Next() string {
 		}
 	}
 
-	id := qd.rndId()
+	id := qd.rndID()
 	// this shouldn't really happen, but just to be on the safe side
-	if !qd.validId(id) {
+	if !qd.validID(id) {
 		return ""
 	}
 

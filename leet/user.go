@@ -14,21 +14,23 @@ type ScoreTracker struct {
 }
 
 type User struct {
-	sync.RWMutex
-	Nick      string       `json:"nick"`       // duplicate of map key, but we need to have it here as well sometimes
-	Points    int          `json:"score"`      // current points total
-	Locked    bool         `json:"locked"`     // true if the user has reached the target limit
 	LastEntry time.Time    `json:"last_entry"` // time of last !1337 post that resulted in a score, positive or negative
 	BestEntry time.Time    `json:"best_entry"` // tighhtest to 1337, or whatever...
 	Taxes     ScoreTracker `json:"taxes"`      // hos much tax over time
 	Bonuses   ScoreTracker `json:"bonuses"`    // how much bonuses over time
 	Misses    ScoreTracker `json:"misses"`     // how many times have the user been early or late
-	didTry    bool
 	l         zerolog.Logger
+	Nick      string `json:"nick"`  // duplicate of map key, but we need to have it here as well sometimes
+	Points    int    `json:"score"` // current points total
+	didTry    bool
+	Locked    bool `json:"locked"` // true if the user has reached the target limit
+	sync.RWMutex
 }
 
-type UserMap map[string]*User
-type UserSlice []*User
+type (
+	UserMap   map[string]*User
+	UserSlice []*User
+)
 
 func (um UserMap) toSlice() UserSlice {
 	us := make(UserSlice, 0, len(um))
@@ -161,7 +163,7 @@ func (u *User) setLastEntry(when time.Time) {
 	u.Unlock()
 }
 
-func (u *User) lastTsInCurrentRound(t time.Time) bool {
+func (u *User) lastTSInCurrentRound(t time.Time) bool {
 	leOffset := u.getLastEntry().Add(3 * time.Minute)
 	return !t.After(leOffset)
 }
@@ -266,8 +268,8 @@ func (u *User) setBestEntry(when time.Time) {
 
 	oldTimeCode := timeFrame(u.BestEntry)
 
-	if TF_BEFORE == oldTimeCode || TF_EARLY == oldTimeCode {
-		if TF_EARLY == newTimeCode {
+	if tfBefore == oldTimeCode || tfEarly == oldTimeCode {
+		if tfEarly == newTimeCode {
 			if IsAfter(when, u.BestEntry) {
 				llog.Debug().Msg("Both times are before, but new time is better - setting time")
 				u.setBestEntryWithLock(when)
@@ -276,12 +278,12 @@ func (u *User) setBestEntry(when time.Time) {
 			llog.Debug().Msg("Both times are before, but old one is better - skipping")
 			return
 		}
-		if TF_ONTIME == newTimeCode {
+		if tfOnTime == newTimeCode {
 			llog.Debug().Msg("Old time is before, new time is on time - setting time")
 			u.setBestEntryWithLock(when)
 			return
 		}
-		if TF_LATE == newTimeCode {
+		if tfLate == newTimeCode {
 			llog.Debug().Msg("Old time is before, new time is after - skipping")
 			return
 		}
@@ -289,12 +291,12 @@ func (u *User) setBestEntry(when time.Time) {
 		return
 	}
 
-	if TF_ONTIME == oldTimeCode {
-		if TF_EARLY == newTimeCode {
+	if tfOnTime == oldTimeCode {
+		if tfEarly == newTimeCode {
 			llog.Debug().Msg("Old time on time, but new is before - skipping")
 			return
 		}
-		if TF_LATE == newTimeCode {
+		if tfLate == newTimeCode {
 			llog.Debug().Msg("Old time on time, but new time after - skipping")
 			return
 		}
@@ -307,15 +309,15 @@ func (u *User) setBestEntry(when time.Time) {
 		return
 	}
 
-	if TF_LATE == oldTimeCode || TF_AFTER == oldTimeCode {
-		if TF_EARLY == newTimeCode {
+	if tfLate == oldTimeCode || tfAfter == oldTimeCode {
+		if tfEarly == newTimeCode {
 			// Most likely, an early time will be closer to the target than a
 			// late time
 			llog.Debug().Msg("Old time is after, new time before - setting time")
 			u.setBestEntryWithLock(when)
 			return
 		}
-		if TF_ONTIME == newTimeCode {
+		if tfOnTime == newTimeCode {
 			llog.Debug().Msg("Old time is after, new time is on time - setting time")
 			u.setBestEntryWithLock(when)
 			return

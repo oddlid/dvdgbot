@@ -16,22 +16,22 @@ import (
 
 // Constants used for module settings, unless corresponding env vars are given
 const (
-	DEF_HOUR          = 13                               // Override with env var LEETBOT_HOUR
-	DEF_MINUTE        = 37                               // Override with env var LEETBOT_MINUTE
-	SCORE_FILE        = "/tmp/leetbot_scores.json"       // Override with env var LEETBOT_SCOREFILE
-	BONUSCONFIGS_FILE = "/tmp/leetbot_bonusconfigs.json" // Override with env var LEETBOT_BONUSCONFIGFILE
-	PLUGIN            = "LeetBot"                        // Just used for log output
+	defaultHour      = 13                               // Override with env var LEETBOT_HOUR
+	defaultMinute    = 37                               // Override with env var LEETBOT_MINUTE
+	scoreFile        = "/tmp/leetbot_scores.json"       // Override with env var LEETBOT_SCOREFILE
+	bonusConfigsFile = "/tmp/leetbot_bonusconfigs.json" // Override with env var LEETBOT_BONUSCONFIGFILE
+	plugin           = "LeetBot"                        // Just used for log output
 )
 
 type TimeCode int
 
-// Constants for signalling how much off timeframe
+// Constants for signaling how much off timeframe
 const (
-	TF_BEFORE TimeCode = iota // more than a minute before
-	TF_EARLY                  // less than a minute before
-	TF_ONTIME                 // within correct minute
-	TF_LATE                   // less than a minute late
-	TF_AFTER                  // more than a minute late
+	tfBefore TimeCode = iota // more than a minute before
+	tfEarly                  // less than a minute before
+	tfOnTime                 // within correct minute
+	tfLate                   // less than a minute late
+	tfAfter                  // more than a minute late
 )
 
 var (
@@ -43,7 +43,7 @@ var (
 	_scoreData       *ScoreData
 	_bot             *bot.Bot
 	_bonusConfigs    BonusConfigs
-	_log             = log.With().Str("plugin", PLUGIN).Logger()
+	_log             = log.With().Str("plugin", plugin).Logger()
 	_ntpServer       string
 	_ntpOffset       time.Duration
 	_cron            *cron.Cron
@@ -118,27 +118,27 @@ func getShortTime(t time.Time) string {
 func timeFrame(t time.Time) TimeCode {
 	th := t.Hour()
 	if th < _hour {
-		return TF_BEFORE
+		return tfBefore
 	} else if th > _hour {
-		return TF_AFTER
+		return tfAfter
 	}
 	// now we know we're within the correct hour
 	tm := t.Minute()
 	if tm < _minute-1 {
-		return TF_BEFORE
+		return tfBefore
 	} else if tm > _minute+1 {
-		return TF_AFTER
+		return tfAfter
 	} else if tm == _minute-1 {
-		return TF_EARLY
+		return tfEarly
 	} else if tm == _minute+1 {
-		return TF_LATE
+		return tfLate
 	}
-	return TF_ONTIME
+	return tfOnTime
 }
 
 func withinTimeFrame(t time.Time) (bool, TimeCode) {
 	tf := timeFrame(t)
-	if TF_EARLY == tf || TF_ONTIME == tf || TF_LATE == tf {
+	if tfEarly == tf || tfOnTime == tf || tfLate == tf {
 		return true, tf
 	}
 	return false, tf
@@ -150,7 +150,7 @@ func getScoreForEntry(t time.Time) (int, TimeCode) {
 	var points int
 	tf := timeFrame(t)
 
-	if TF_EARLY == tf || TF_LATE == tf {
+	if tfEarly == tf || tfLate == tf {
 		points = -1
 	} else {
 		points = 0 // will be set later if on time
@@ -166,10 +166,9 @@ func checkArgs(cmd *bot.Cmd) (proceed bool, msg string) {
 		if _scoreData.calcInProgress {
 			msg = "Stats are calculating. Try again in a couple of minutes."
 			return
-		} else {
-			msg = _scoreData.stats(cmd.Channel)
-			return
 		}
+		msg = _scoreData.stats(cmd.Channel)
+		return
 	} else if alen == 1 && cmd.Args[0] == "reload" {
 		// TODO: Handle load errors and give feedback for BC as well
 		err := _bonusConfigs.loadFile(_bonusConfigFile)
@@ -180,17 +179,16 @@ func checkArgs(cmd *bot.Cmd) (proceed bool, msg string) {
 		}
 		if !_scoreData.saveInProgress {
 			_, err = _scoreData.loadFile(_scoreFile)
-			if nil != err {
+			if err != nil {
 				llog.Error().Err(err).Send()
 				msg = err.Error()
 			} else {
 				msg = "Score data reloaded from file"
 			}
 			return
-		} else {
-			msg = "A scheduled save is in progress. Will not reload right now."
-			return
 		}
+		msg = "A scheduled save is in progress. Will not reload right now."
+		return
 	} else if alen >= 1 {
 		msg = fmt.Sprintf("Unrecognized argument: %q. Usage: !1337 [stats|reload]", cmd.Args[0])
 		return
@@ -244,11 +242,11 @@ func leet(cmd *bot.Cmd) (string, error) {
 
 	// at this point, data might have changed, and should be saved
 	var delayMinutes time.Duration
-	if TF_EARLY == tf {
+	if tfEarly == tf {
 		delayMinutes = 3
-	} else if TF_ONTIME == tf {
+	} else if tfOnTime == tf {
 		delayMinutes = 2
-	} else if TF_LATE == tf {
+	} else if tfLate == tf {
 		delayMinutes = 1
 	}
 
@@ -265,7 +263,7 @@ func leet(cmd *bot.Cmd) (string, error) {
 	}
 
 	// bogus
-	return "", fmt.Errorf("%s: Reached beyond logic", PLUGIN)
+	return "", fmt.Errorf("%s: Reached beyond logic", plugin)
 }
 
 //func envDefStr(key, fallback string) string {
@@ -297,10 +295,10 @@ func getTargetScore() int {
 		return _targetScore
 	}
 	if _hour == 0 {
-		_hour = DEF_HOUR
+		_hour = defaultHour
 	}
 	if _minute == 0 {
-		_minute = DEF_MINUTE
+		_minute = defaultMinute
 	}
 	intVal, err := strconv.Atoi(fmt.Sprintf("%d%02d", _hour, _minute))
 	if nil != err {
@@ -405,10 +403,10 @@ func scheduleNtpCheck(hour, minute int, server string) bool {
 }
 
 func pickupEnv() {
-	_hour = util.EnvDefInt("LEETBOT_HOUR", DEF_HOUR)
-	_minute = util.EnvDefInt("LEETBOT_MINUTE", DEF_MINUTE)
-	_scoreFile = util.EnvDefStr("LEETBOT_SCOREFILE", SCORE_FILE)
-	_bonusConfigFile = util.EnvDefStr("LEETBOT_BONUSCONFIGFILE", BONUSCONFIGS_FILE)
+	_hour = util.EnvDefInt("LEETBOT_HOUR", defaultHour)
+	_minute = util.EnvDefInt("LEETBOT_MINUTE", defaultMinute)
+	_scoreFile = util.EnvDefStr("LEETBOT_SCOREFILE", scoreFile)
+	_bonusConfigFile = util.EnvDefStr("LEETBOT_BONUSCONFIGFILE", bonusConfigsFile)
 	_ntpServer = util.EnvDefStr("LEETBOT_NTP_SERVER", "") // we want empty as default if not specified here
 }
 

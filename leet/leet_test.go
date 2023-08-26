@@ -2,7 +2,6 @@ package leet
 
 import (
 	"fmt"
-	"math/rand"
 	"os"
 	"strings"
 	"testing"
@@ -82,7 +81,7 @@ func TestSave(t *testing.T) {
 	t.Logf("Saved %d bytes to %q", n, fname)
 }
 
-func TestInspection(t *testing.T) {
+func TestInspection(_ *testing.T) {
 	zerolog.SetGlobalLevel(zerolog.DebugLevel)
 	sd := getData()
 	c := sd.get(testChannel)
@@ -90,8 +89,6 @@ func TestInspection(t *testing.T) {
 	for k := range c.Users {
 		c.addNickForRound(k) // adds to c.tmpNicks
 	}
-
-	rand.Seed(time.Now().UnixNano())
 
 	for i := 0; i < 100; i++ {
 		nickIdx, tax := c.randomInspect()
@@ -112,7 +109,6 @@ func TestInspectLoner(t *testing.T) {
 	sd := getData()
 	c := sd.get(testChannel)
 	c.InspectionTax = 100.0 // % of total points for the user with the least points in the current round
-	rand.Seed(time.Now().UnixNano())
 	nick := "Oddlid"
 	c.clearNicksForRound() // forgetting this made tests fail when running with ./...
 	c.addNickForRound(nick)
@@ -141,7 +137,6 @@ func TestInspectLoner(t *testing.T) {
 
 func TestTaxFail(t *testing.T) {
 	zerolog.SetGlobalLevel(zerolog.DebugLevel)
-	rand.Seed(time.Now().UnixNano())
 	sd := getData()
 	c := sd.get(testChannel)
 	c.InspectionTax = 50.14 // % of total points for the user with the least points in the current round
@@ -159,11 +154,10 @@ func TestTaxFail(t *testing.T) {
 
 func TestStats(_ *testing.T) {
 	zerolog.SetGlobalLevel(zerolog.DebugLevel)
-	rand.Seed(time.Now().UnixNano())
 	sd := getData()
 
 	u := sd.get(testChannel).get("Oddlid")
-	u.setLocked(true)
+	u.lock()
 	u.setLastEntry(time.Now())
 	u.setScore(getTargetScore())
 
@@ -216,7 +210,6 @@ func TestGetTargetScore(t *testing.T) {
 
 func TestWinner(t *testing.T) {
 	zerolog.SetGlobalLevel(zerolog.DebugLevel)
-	rand.Seed(time.Now().UnixNano())
 	sd := getData()
 	c := sd.get(testChannel)
 
@@ -224,7 +217,7 @@ func TestWinner(t *testing.T) {
 	user := c.get(nick)
 	user.setScore(getTargetScore())
 	user.setLastEntry(time.Now())
-	user.setLocked(true)
+	user.lock()
 
 	locked := user.isLocked()
 	if locked {
@@ -244,7 +237,6 @@ func TestWinner(t *testing.T) {
 
 func TestUserSort(t *testing.T) {
 	zerolog.SetGlobalLevel(zerolog.DebugLevel)
-	rand.Seed(time.Now().UnixNano())
 	sd := getData()
 	c := sd.get(testChannel)
 
@@ -312,10 +304,8 @@ func TestUserSort(t *testing.T) {
 	for _, v := range ws {
 		if nil == pu {
 			pu = v
-		} else {
-			if v.LastEntry.Before(pu.LastEntry) {
-				t.Errorf("%s is after %s", v.LastEntry, pu.LastEntry)
-			}
+		} else if v.LastEntry.Before(pu.LastEntry) {
+			t.Errorf("%s is after %s", v.LastEntry, pu.LastEntry)
 		}
 		fmt.Printf(
 			"%-10s: %d @ %s\n",
@@ -326,57 +316,8 @@ func TestUserSort(t *testing.T) {
 	}
 }
 
-//func TestRemoveNickFromRound(t *testing.T) {
-//	zerolog.SetGlobalLevel(zerolog.DebugLevel)
-//	rand.Seed(time.Now().UnixNano())
-//	sd := getData()
-//	c := sd.get(TST_CHAN)
-//
-//	//nicks := []string{
-//	//	"Oddlid",
-//	//	"Tord",
-//	//	"Snelhest",
-//	//	"bAAAArd",
-//	//}
-//	nicks := c.nickList() // swap this for the above if not loading local list
-//	for _, n := range nicks {
-//		c.addNickForRound(n)
-//	}
-//	origLen := len(c.tmpNicks)
-//	nickToRemove := nicks[1]
-//
-//	c.removeNickFromRound(nickToRemove)
-//
-//	newLen := len(c.tmpNicks)
-//
-//	// check length
-//	if newLen != origLen-1 {
-//		t.Errorf("Expected length to be %d, but got %d", origLen-1, newLen)
-//	}
-//
-//	// check that it does not contain removed nick
-//	for _, n := range c.tmpNicks {
-//		if n == nickToRemove {
-//			t.Errorf("%q should not be in c.tmpNicks anymore", nickToRemove)
-//		}
-//	}
-//
-//	// check order preserved
-//	if c.tmpNicks[0] != nicks[0] {
-//		t.Errorf("Nick at index %d should be %q", 0, nicks[0])
-//	}
-//	if c.tmpNicks[1] != nicks[2] {
-//		t.Errorf("Nick at index %d should be %q", 1, nicks[2])
-//	}
-//	if c.tmpNicks[2] != nicks[3] {
-//		t.Errorf("Nick at index %d should be %q", 2, nicks[3])
-//	}
-//
-//}
-
 func TestOverShooters(t *testing.T) {
 	zerolog.SetGlobalLevel(zerolog.DebugLevel)
-	rand.Seed(time.Now().UnixNano())
 	sd := getData()
 	c := sd.get(testChannel)
 	c.OvershootTax = 5
@@ -460,7 +401,6 @@ func TestOverShooters(t *testing.T) {
 // Here we'll try to simulate a round where users pass the finish line
 func TestRaceToFinish(t *testing.T) {
 	zerolog.SetGlobalLevel(zerolog.DebugLevel)
-	rand.Seed(time.Now().UnixNano())
 	sd := getData()
 	c := sd.get(testChannel)
 	c.OvershootTax = 15
@@ -536,7 +476,7 @@ func TestRaceToFinish(t *testing.T) {
 	ws := umap.filterByPointsEQ(limit)
 	// Add winners to channel
 	for _, user := range ws {
-		user.setLocked(true)
+		user.lock()
 	}
 
 	ws.sortByLastEntryAsc()
@@ -552,7 +492,6 @@ func TestRaceToFinish(t *testing.T) {
 
 func TestCalcScore(t *testing.T) {
 	zerolog.SetGlobalLevel(zerolog.DebugLevel)
-	rand.Seed(time.Now().UnixNano())
 	sd := getData()
 	c := sd.get(testChannel)
 	c.OvershootTax = 15
@@ -590,9 +529,8 @@ func TestCalcScore(t *testing.T) {
 	t.Logf("\n%s", sd.calcScore(c))
 }
 
-func TestSetBestEntry(t *testing.T) {
+func TestSetBestEntry(_ *testing.T) {
 	zerolog.SetGlobalLevel(zerolog.DebugLevel)
-	rand.Seed(time.Now().UnixNano())
 	sd := getData()
 	c := sd.get(testChannel)
 
@@ -610,15 +548,6 @@ func TestSetBestEntry(t *testing.T) {
 		user.setBestEntry(newTime)
 	}
 }
-
-//func TestCompareTimes(t *testing.T) {
-//	log.SetLevel(log.DebugLevel)
-//	rand.Seed(time.Now().UnixNano())
-//	sd := getData()
-//	c := sd.get(TST_CHAN)
-//
-//	t.Log("Under construction")
-//}
 
 func TestBonusConfigCalc(t *testing.T) {
 	var bcs BonusConfigs
@@ -715,24 +644,19 @@ func TestGetCronTime(t *testing.T) {
 	}
 }
 
-//func TestNtp(t *testing.T) {
-//	checkNtp("0.se.pool.ntp.org")
-//}
-
-func TestNtpCheck(t *testing.T) {
-	zerolog.SetGlobalLevel(zerolog.DebugLevel)
-	h, m := getCronTime(_hour, _minute, 1*time.Minute)
-	success := scheduleNtpCheck(h, m, "0.se.pool.ntp.org")
-	if success {
-		t.Log("Sleeping for 70 seconds...")
-		time.Sleep(70 * time.Second)
-		t.Logf("NTP offset after scheduled update: %+v", _ntpOffset)
-	}
-}
+// func TestNtpCheck(t *testing.T) {
+// 	zerolog.SetGlobalLevel(zerolog.DebugLevel)
+// 	h, m := getCronTime(_hour, _minute, 1*time.Minute)
+// 	success := scheduleNtpCheck(h, m, "0.se.pool.ntp.org")
+// 	if success {
+// 		t.Log("Sleeping for 70 seconds...")
+// 		time.Sleep(70 * time.Second)
+// 		t.Logf("NTP offset after scheduled update: %+v", _ntpOffset)
+// 	}
+// }
 
 func TestLastTsInCurrentRound(t *testing.T) {
 	zerolog.SetGlobalLevel(zerolog.DebugLevel)
-	rand.Seed(time.Now().UnixNano())
 	sd := getData()
 	c := sd.get(testChannel)
 	u := c.get("Oddlid")
@@ -773,7 +697,6 @@ func TestLastTsInCurrentRound(t *testing.T) {
 // then just call getIndex for the given nick.
 func BenchmarkGetWinnerRank(b *testing.B) {
 	zerolog.SetGlobalLevel(zerolog.DebugLevel)
-	rand.Seed(time.Now().UnixNano())
 	sd := getData()
 	c := sd.get(testChannel)
 	limit := getTargetScore()
@@ -781,7 +704,7 @@ func BenchmarkGetWinnerRank(b *testing.B) {
 	for _, u := range c.Users {
 		u.setScore(limit)
 		u.setLastEntry(time.Now())
-		u.setLocked(true)
+		u.lock()
 	}
 
 	rank := 0
@@ -797,7 +720,6 @@ func BenchmarkGetWinnerRank(b *testing.B) {
 // Locally cached version for comparison
 func BenchmarkGetWinnerRankCached(b *testing.B) {
 	zerolog.SetGlobalLevel(zerolog.DebugLevel)
-	rand.Seed(time.Now().UnixNano())
 	sd := getData()
 	c := sd.get(testChannel)
 	limit := getTargetScore()
@@ -805,7 +727,7 @@ func BenchmarkGetWinnerRankCached(b *testing.B) {
 	for _, u := range c.Users {
 		u.setScore(limit)
 		u.setLastEntry(time.Now())
-		u.setLocked(true)
+		u.lock()
 	}
 
 	// Now we have done the filtering in advance and have the results locally,
@@ -838,7 +760,6 @@ then pass those pointers around everywhere they're used. That should save a lot 
 // 24.3 ns/op
 func BenchmarkGetExistingUser(b *testing.B) {
 	zerolog.SetGlobalLevel(zerolog.DebugLevel)
-	rand.Seed(time.Now().UnixNano())
 	sd := getData()
 	c := sd.get(testChannel)
 
@@ -854,7 +775,6 @@ func BenchmarkGetExistingUser(b *testing.B) {
 // 820 ns/op
 func BenchmarkGetNonExistingUser(b *testing.B) {
 	zerolog.SetGlobalLevel(zerolog.DebugLevel)
-	rand.Seed(time.Now().UnixNano())
 	sd := getData()
 	c := sd.get(testChannel)
 
@@ -895,33 +815,6 @@ func BenchmarkStrIndex(b *testing.B) {
 	}
 	intVar = ires
 }
-
-//func BenchmarkPrefixedBy(b *testing.B) {
-//	ts, _ := time.Parse(time.RFC3339Nano, "2019-04-07T13:37:00.000001337Z")
-//	tstr := fmt.Sprintf("%02d%09d", ts.Second(), ts.Nanosecond())
-//	sstr := "1337"
-//	idx := strings.Index(tstr, sstr)
-//	var bres bool
-//
-//	for i := 0; i < b.N; i++ {
-//		bres = pb(tstr, '0', idx)
-//	}
-//	boolVar = bres
-//}
-
-//func BenchmarkBonus(b *testing.B) {
-//	ts, _ := time.Parse(time.RFC3339Nano, "2019-04-07T13:37:00.000001337Z")
-//	//ts, _ := time.Parse(time.RFC3339Nano, "2019-04-07T13:37:13.370000000Z")
-//	//ts, _ := time.Parse(time.RFC3339Nano, "2019-04-07T13:37:01.337000000Z")
-//	//bp := 0
-//	var ires int
-//	for i := 0; i < b.N; i++ {
-//		//bp = bonus(ts)
-//		ires = bonus(ts)
-//	}
-//	intVar = ires
-//	//b.Logf("bonus: %d", bp)
-//}
 
 func BenchmarkBonusConfigCalc(b *testing.B) {
 	var bcs BonusConfigs
@@ -1021,18 +914,6 @@ func BenchmarkTimeFrame(b *testing.B) {
 	}
 	tcVar = result
 }
-
-//func BenchmarkDidTry(b *testing.B) {
-//	sd := newScoreData()
-//	nick := "Odd"
-//	channel := "#channel"
-//	var result bool
-//
-//	for i := 0; i < b.N; i++ {
-//		result = sd.didTry(channel, nick)
-//	}
-//	boolVar = result
-//}
 
 func BenchmarkLeet(b *testing.B) {
 	// I'd like to see if I can mock the whole process, and see how tight posts could get

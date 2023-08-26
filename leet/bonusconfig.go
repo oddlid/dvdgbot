@@ -94,7 +94,6 @@ func (bc BonusConfig) calc(ts string) BonusReturn {
 	// We have a match, but don't care about the substring position,
 	// so we return points for any match without calculation
 	if !bc.UseStep {
-		// return bc.NoStepPoints
 		return BonusReturn{
 			Points: bc.NoStepPoints,
 			Match:  bc.SubString,
@@ -105,7 +104,6 @@ func (bc BonusConfig) calc(ts string) BonusReturn {
 	// We have a match, we DO care about position, but position is
 	// 0, so we don't need to calculate, and can return StepPoints directly
 	if bc.matchPos == 0 {
-		// return bc.StepPoints
 		return BonusReturn{
 			Points: bc.StepPoints,
 			Match:  bc.SubString,
@@ -118,7 +116,6 @@ func (bc BonusConfig) calc(ts string) BonusReturn {
 
 	// Position is not "purely prefixed" e.g. just zeros before the match
 	if !bc.hasHomogenicPrefix(ts) {
-		// return bc.StepPoints
 		return BonusReturn{
 			Points: bc.StepPoints,
 			Match:  bc.SubString,
@@ -142,7 +139,6 @@ func (bcs *BonusConfigs) add(bc BonusConfig) {
 func (bcs BonusConfigs) calc(ts string) BonusReturns {
 	brs := make(BonusReturns, 0)
 	for _, bc := range bcs {
-		// brs = append(brs, bc.calc(ts))
 		br := bc.calc(ts)
 		if br.Points > 0 {
 			brs = append(brs, br)
@@ -178,11 +174,8 @@ func (bcs *BonusConfigs) loadFile(filename string) error {
 		return err
 	}
 	defer file.Close()
-	err = bcs.load(file)
-	if err != nil {
-		return err
-	}
-	return nil
+
+	return bcs.load(file)
 }
 
 func (bcs BonusConfigs) save(w io.Writer) (int, error) {

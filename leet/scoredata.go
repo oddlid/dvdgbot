@@ -31,13 +31,6 @@ func (s *ScoreData) isEmpty() bool {
 	return len(s.Channels) == 0
 }
 
-//func (s *ScoreData) log() zerolog.Logger {
-//	//if nil == s.l {
-//	//	return _log
-//	//}
-//	return s.l
-//}
-
 func (s *ScoreData) load(r io.Reader) error {
 	jb, err := io.ReadAll(r)
 	if err != nil {
@@ -89,14 +82,13 @@ func (s *ScoreData) saveFile(filename string) error {
 	return nil
 }
 
-func (s *ScoreData) scheduleSave(filename string, delayMinutes time.Duration) bool {
+func (s *ScoreData) scheduleSave(filename string, delay time.Duration) bool {
 	if s.saveInProgress {
 		return false
 	}
 	s.saveInProgress = true
-	time.AfterFunc(delayMinutes*time.Minute, func() {
-		err := s.saveFile(filename)
-		if err != nil {
+	time.AfterFunc(delay, func() {
+		if err := s.saveFile(filename); err != nil {
 			s.l.Error().
 				Err(err).
 				Msg("Scheduled save failed")
@@ -200,7 +192,7 @@ func (s *ScoreData) calcScore(c *Channel) string {
 		}
 		// If the user is now at at total that matches target score, it needs to be marked as a winner, before we move on
 		if getTargetScore() == u.getScore() {
-			u.setLocked(true)
+			u.lock()
 		}
 		genmsg(&sb, nick, u.getScore(), rankPoints, overshootTax, taxDeduction)
 		fmt.Fprintf(&sb, "\n")
@@ -224,7 +216,7 @@ func (s *ScoreData) calcScore(c *Channel) string {
 			user.addTax(overshootTax)
 		}
 		if getTargetScore() == user.getScore() {
-			user.setLocked(true)
+			user.lock()
 		}
 		genmsg(&sb, nick, user.getScore(), 0, overshootTax, -1)
 		fmt.Fprintf(&sb, "\n")
@@ -235,14 +227,13 @@ func (s *ScoreData) calcScore(c *Channel) string {
 	return sb.String()
 }
 
-func (s *ScoreData) scheduleCalcScore(c *Channel, delayMinutes time.Duration) bool {
+func (s *ScoreData) scheduleCalcScore(c *Channel, delay time.Duration) bool {
 	if s.calcInProgress {
 		return false
 	}
 	s.calcInProgress = true
-	time.AfterFunc(delayMinutes*time.Minute, func() {
-		err := msgChan(c.Name, strings.TrimRight(s.calcScore(c), "\n"))
-		if nil != err {
+	time.AfterFunc(delay, func() {
+		if err := msgChan(c.Name, strings.TrimRight(s.calcScore(c), "\n")); err != nil {
 			s.l.Error().
 				Err(err).
 				Str("func", "scheduleCalcScore").
@@ -331,13 +322,6 @@ func (s *ScoreData) stats(channel string) string {
 
 func (s *ScoreData) tryScore(c *Channel, u *User, t time.Time) (bool, string) {
 	points, tf := getScoreForEntry(t) // -1 or 0
-
-	// No points, not even minus if you're outside the timeframe
-	// leet() checks for this condition before calling this func, so I think we can
-	// comment this out safely.
-	//if TF_BEFORE == tf || TF_AFTER == tf {
-	//	return false, ""
-	//}
 
 	ts := fmt.Sprintf("[%02d:%02d:%02d:%09d]", t.Hour(), t.Minute(), t.Second(), t.Nanosecond())
 

@@ -54,16 +54,6 @@ func (c *Channel) postTaxFail(msg string) error {
 	return msgChan(c.Name, msg)
 }
 
-//func (c *Channel) maxPoints() (nick string, res int) {
-//	for k, v := range c.Users {
-//		if v.Points > res {
-//			res = v.Points
-//			nick = k
-//		}
-//	}
-//	return
-//}
-
 func (c *Channel) hasPendingScores() bool {
 	c.RLock()
 	defer c.RUnlock()
@@ -78,34 +68,6 @@ func (c *Channel) addNickForRound(nick string) int {
 	return len(c.tmpNicks) // returns first place, second place etc
 }
 
-// removeNickFromRound returns true if nick was found and deleted, false otherwise
-// Not in use now, but keeping it commented for reference, in case we need it later.
-//func (c *Channel) removeNickFromRound(nick string) bool {
-//	if nil == c.tmpNicks || len(c.tmpNicks) == 0 {
-//		return false
-//	}
-//
-//	nickIdx := -1
-//	for idx := range c.tmpNicks {
-//		if nick == c.tmpNicks[idx] {
-//			nickIdx = idx
-//			break
-//		}
-//	}
-//
-//	if -1 == nickIdx {
-//		return false
-//	}
-//
-//	// Use slow version that maintains order, from https://yourbasic.org/golang/delete-element-slice/
-//	numNicks := len(c.tmpNicks)
-//	copy(c.tmpNicks[nickIdx:], c.tmpNicks[nickIdx+1:])
-//	c.tmpNicks[numNicks-1] = ""
-//	c.tmpNicks = c.tmpNicks[:numNicks-1]
-//
-//	return true
-//}
-
 func (c *Channel) clearNicksForRound() {
 	c.Lock()
 	c.tmpNicks = nil
@@ -114,10 +76,10 @@ func (c *Channel) clearNicksForRound() {
 
 // GetScoresForRound returns a map of nicks with the scores for this round
 func (c *Channel) getScoresForRound() map[string]int {
-	if c.tmpNicks == nil || len(c.tmpNicks) == 0 {
+	maxScore := len(c.tmpNicks)
+	if maxScore == 0 {
 		return nil
 	}
-	maxScore := len(c.tmpNicks)
 	nickMap := make(map[string]int)
 	c.Lock()
 	for i := range c.tmpNicks {
@@ -275,6 +237,7 @@ func (c *Channel) shouldInspect() bool {
 	}
 
 	wd := int(time.Now().Weekday())
+	//nolint:gosec // sufficient
 	rnd := rand.Intn(7) // 7 for number of days in week
 	doInspect := wd == rnd
 
@@ -295,11 +258,11 @@ func (c *Channel) shouldInspect() bool {
 }
 
 // Return index in c.tmpNicks and how many points minus, if selected, otherwise -1 (or -2) and 0
-func (c *Channel) randomInspect() (nickIndex, tax int) {
+func (c *Channel) randomInspect() (int, int) {
 	llog := c.l.With().Str("func", "randomInspect").Logger()
 	if !c.shouldInspect() {
-		nickIndex = -2 // unique "error" value indicating where this func bailed out
-		return
+		// unique "error" value indicating where this func bailed out
+		return -2, 0
 	}
 	maxTax := c.getMaxRoundTax()
 	if maxTax < 1 { // I don't think we've ever reached this section irl
@@ -310,13 +273,11 @@ func (c *Channel) randomInspect() (nickIndex, tax int) {
 		if nil != err {
 			llog.Error().Err(err).Send()
 		}
-		nickIndex = -1
-		return
+		return -1, 0
 	}
 
-	nickIndex = rand.Intn(len(c.tmpNicks))
-	tax = rand.Intn(int(maxTax) + 1)
-	return
+	//nolint:gosec // sufficient
+	return rand.Intn(len(c.tmpNicks)), rand.Intn(int(maxTax) + 1)
 }
 
 // Calling this repeatedly might be inefficient and wasteful.

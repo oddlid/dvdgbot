@@ -3,15 +3,15 @@ package leet
 import (
 	"fmt"
 	"io"
-	"math/rand"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/go-chat-bot/bot"
-	"github.com/oddlid/dvdgbot/util"
 	"github.com/robfig/cron/v3"
 	"github.com/rs/zerolog/log"
+
+	"github.com/oddlid/dvdgbot/util"
 )
 
 // Constants used for module settings, unless corresponding env vars are given
@@ -62,7 +62,7 @@ func msgChan(channel, msg string) error {
 		Str("channel", channel).
 		Str("message", msg).
 		Send()
-	if nil == _bot {
+	if _bot == nil {
 		return fmt.Errorf("parentBot is nil")
 	}
 	if channel == "" {
@@ -159,42 +159,35 @@ func getScoreForEntry(t time.Time) (int, TimeCode) {
 	return points, tf
 }
 
-func checkArgs(cmd *bot.Cmd) (proceed bool, msg string) {
+func checkArgs(cmd *bot.Cmd) (bool, string) {
 	llog := _log.With().Str("func", "checkArgs").Logger()
 	alen := len(cmd.Args)
 	if alen == 1 && cmd.Args[0] == "stats" {
 		if _scoreData.calcInProgress {
-			msg = "Stats are calculating. Try again in a couple of minutes."
-			return
+			return false, "Stats are calculating. Try again in a couple of minutes."
 		}
-		msg = _scoreData.stats(cmd.Channel)
-		return
+		return false, _scoreData.stats(cmd.Channel)
 	} else if alen == 1 && cmd.Args[0] == "reload" {
 		// TODO: Handle load errors and give feedback for BC as well
-		err := _bonusConfigs.loadFile(_bonusConfigFile)
-		if err != nil {
+
+		if err := _bonusConfigs.loadFile(_bonusConfigFile); err != nil {
 			llog.Error().
 				Err(err).
 				Msg("Error loading Bonus Configs from file")
 		}
 		if !_scoreData.saveInProgress {
-			_, err = _scoreData.loadFile(_scoreFile)
+			_, err := _scoreData.loadFile(_scoreFile)
 			if err != nil {
 				llog.Error().Err(err).Send()
-				msg = err.Error()
-			} else {
-				msg = "Score data reloaded from file"
+				return false, err.Error()
 			}
-			return
+			return false, "Score data reloaded from file"
 		}
-		msg = "A scheduled save is in progress. Will not reload right now."
-		return
+		return false, "A scheduled save is in progress. Will not reload right now."
 	} else if alen >= 1 {
-		msg = fmt.Sprintf("Unrecognized argument: %q. Usage: !1337 [stats|reload]", cmd.Args[0])
-		return
+		return false, fmt.Sprintf("Unrecognized argument: %q. Usage: !1337 [stats|reload]", cmd.Args[0])
 	}
-	proceed = true
-	return
+	return true, ""
 }
 
 func leet(cmd *bot.Cmd) (string, error) {
@@ -241,21 +234,24 @@ func leet(cmd *bot.Cmd) (string, error) {
 	success, msg := _scoreData.tryScore(c, u, t)
 
 	// at this point, data might have changed, and should be saved
-	var delayMinutes time.Duration
-	if tfEarly == tf {
-		delayMinutes = 3
-	} else if tfOnTime == tf {
-		delayMinutes = 2
-	} else if tfLate == tf {
-		delayMinutes = 1
+	var delay int
+	switch tf {
+	case tfEarly:
+		delay = 3
+	case tfOnTime:
+		delay = 2
+	case tfLate:
+		delay = 1
+	default:
+		delay = 0
 	}
 
 	if success && !_scoreData.saveInProgress {
-		_scoreData.scheduleSave(_scoreFile, delayMinutes+1)
+		_scoreData.scheduleSave(_scoreFile, time.Duration(delay+1)*time.Minute)
 	}
 
 	if !_scoreData.calcInProgress && c.hasPendingScores() {
-		_scoreData.scheduleCalcScore(c, delayMinutes)
+		_scoreData.scheduleCalcScore(c, time.Duration(delay)*time.Minute)
 	}
 
 	if success {
@@ -265,27 +261,6 @@ func leet(cmd *bot.Cmd) (string, error) {
 	// bogus
 	return "", fmt.Errorf("%s: Reached beyond logic", plugin)
 }
-
-//func envDefStr(key, fallback string) string {
-//	val, found := os.LookupEnv(key)
-//	if !found {
-//		return fallback
-//	}
-//	return val // might still be empty, if set, but empty in ENV
-//}
-//
-//func envDefInt(key string, fallback int) int {
-//	val, found := os.LookupEnv(key)
-//	if !found {
-//		return fallback
-//	}
-//	intVal, err := strconv.Atoi(val)
-//	if err != nil {
-//		_log.WithError(err).Error("Conversion error")
-//		return fallback
-//	}
-//	return intVal
-//}
 
 // getTargetScore should be used only _after_ pickupEnv, as it will modify
 // vars _hour/_minute if not set
@@ -314,7 +289,7 @@ func getTargetScore() int {
 
 // Helper to make sure we get the right time, even when adjusting across
 // time borders
-func getCronTime(hour, minute int, adjust time.Duration) (h, m int) {
+func getCronTime(hour, minute int, adjust time.Duration) (int, int) {
 	now := time.Now()
 	then := time.Date(
 		now.Year(),
@@ -327,9 +302,7 @@ func getCronTime(hour, minute int, adjust time.Duration) (h, m int) {
 		now.Location(),
 	)
 	when := then.Add(adjust)
-	h = when.Hour()
-	m = when.Minute()
-	return
+	return when.Hour(), when.Minute()
 }
 
 func scheduleNtpCheck(hour, minute int, server string) bool {
@@ -373,7 +346,7 @@ func scheduleNtpCheck(hour, minute int, server string) bool {
 		func() {
 			llog.Info().Msg("Running NTP query...")
 			offset, err := getNtpOffset(server)
-			if nil != err {
+			if err != nil {
 				_ntpOffset = 0 // reset, so we don't use offset that might be way off since last sync
 				llog.Error().Err(err).Send()
 				return
@@ -385,11 +358,13 @@ func scheduleNtpCheck(hour, minute int, server string) bool {
 			// notify all channels
 			msg := fmt.Sprintf("NTP offset from %q: %+v", server, _ntpOffset)
 			for channel := range _scoreData.Channels {
-				msgChan(channel, msg)
+				if err := msgChan(channel, msg); err != nil {
+					llog.Error().Err(err).Msgf("Failed to send message to channel %q", channel)
+				}
 			}
 		},
 	)
-	if nil != err {
+	if err != nil {
 		llog.Error().Err(err).Send()
 		return false
 	}
@@ -423,8 +398,7 @@ func init() {
 			Msg("Error loading scoredata from file")
 	}
 
-	err = _bonusConfigs.loadFile(_bonusConfigFile)
-	if err != nil {
+	if err = _bonusConfigs.loadFile(_bonusConfigFile); err != nil {
 		llog.Error().
 			Err(err).
 			Msg("Error loading Bonus Configs from file")
@@ -451,9 +425,6 @@ func init() {
 	} else {
 		llog.Info().Msg("No NTP server set")
 	}
-
-	// Init rand for using in tax calculation
-	rand.Seed(time.Now().UnixNano())
 
 	bot.RegisterCommand(
 		"1337",

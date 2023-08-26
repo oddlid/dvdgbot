@@ -22,9 +22,9 @@ type User struct {
 	Bonuses   ScoreTracker `json:"bonuses"`    // how much bonuses over time
 	Misses    ScoreTracker `json:"misses"`     // how many times have the user been early or late
 	Points    int          `json:"score"`      // current points total
-	sync.RWMutex
-	didTry bool
-	Locked bool `json:"locked"` // true if the user has reached the target limit
+	mu        sync.RWMutex
+	didTry    bool
+	Locked    bool `json:"locked"` // true if the user has reached the target limit
 }
 
 type (
@@ -100,39 +100,57 @@ func (us UserSlice) getIndex(nick string) int {
 }
 
 func (u *User) try(val bool) {
-	u.Lock()
+	if u == nil {
+		return
+	}
+	u.mu.Lock()
 	u.didTry = val
-	u.Unlock()
+	u.mu.Unlock()
 }
 
 func (u *User) hasTried() bool {
-	u.RLock()
-	defer u.RUnlock()
+	if u == nil {
+		return false
+	}
+	u.mu.RLock()
+	defer u.mu.RUnlock()
 	return u.didTry
 }
 
 func (u *User) getScore() int {
-	u.RLock()
-	defer u.RUnlock()
+	if u == nil {
+		return 0
+	}
+	u.mu.RLock()
+	defer u.mu.RUnlock()
 	return u.Points
 }
 
 func (u *User) addScore(points int) int {
-	u.Lock()
-	defer u.Unlock()
+	if u == nil {
+		return 0
+	}
+	u.mu.Lock()
+	defer u.mu.Unlock()
 	u.Points += points
 	return u.Points
 }
 
 // mostly for testing at the time of writing
 func (u *User) setScore(points int) {
-	u.Lock()
+	if u == nil {
+		return
+	}
+	u.mu.Lock()
 	u.Points = points
-	u.Unlock()
+	u.mu.Unlock()
 }
 
 // wrapper around addScore()
 func (u *User) score(points int, when time.Time) (bool, int) {
+	if u == nil {
+		return false, 0
+	}
 	if u.hasTried() {
 		return false, u.getScore()
 	}
@@ -152,37 +170,52 @@ func (u *User) score(points int, when time.Time) (bool, int) {
 }
 
 func (u *User) getLastEntry() time.Time {
-	u.RLock()
-	defer u.RUnlock()
+	if u == nil {
+		return time.Time{}
+	}
+	u.mu.RLock()
+	defer u.mu.RUnlock()
 	return u.LastEntry
 }
 
 func (u *User) setLastEntry(when time.Time) {
-	u.Lock()
+	if u == nil {
+		return
+	}
+	u.mu.Lock()
 	u.LastEntry = when
-	u.Unlock()
+	u.mu.Unlock()
 }
 
 func (u *User) lastTSInCurrentRound(t time.Time) bool {
+	if u == nil {
+		return false
+	}
 	leOffset := u.getLastEntry().Add(3 * time.Minute)
 	return !t.After(leOffset)
 }
 
-func (u *User) setLocked(locked bool) {
-	u.Lock()
-	u.Locked = locked
-	u.Unlock()
+func (u *User) lock() {
+	if u == nil {
+		return
+	}
+	u.mu.Lock()
+	u.Locked = true
+	u.mu.Unlock()
 }
 
 func (u *User) isLocked() bool {
-	u.RLock()
-	defer u.RUnlock()
+	if u == nil {
+		return false
+	}
+	u.mu.RLock()
+	defer u.mu.RUnlock()
 	return u.Locked
 }
 
 // Helper functions for comparing times. We can't use time.(Defore|After), since
 // we only want to compare the time part, not the date
-func IsBefore(t1, t2 time.Time) bool {
+func isBefore(t1, t2 time.Time) bool {
 	if t1.Minute() < t2.Minute() {
 		return true
 	}
@@ -199,7 +232,7 @@ func IsBefore(t1, t2 time.Time) bool {
 	return false
 }
 
-func IsAfter(t1, t2 time.Time) bool {
+func isAfter(t1, t2 time.Time) bool {
 	if t1.Minute() > t2.Minute() {
 		return true
 	}
@@ -217,20 +250,29 @@ func IsAfter(t1, t2 time.Time) bool {
 }
 
 func (u *User) getBestEntry() time.Time {
-	u.RLock()
-	defer u.RUnlock()
+	if u == nil {
+		return time.Time{}
+	}
+	u.mu.RLock()
+	defer u.mu.RUnlock()
 	return u.BestEntry
 }
 
 func (u *User) setBestEntryWithLock(when time.Time) {
-	u.Lock()
+	if u == nil {
+		return
+	}
+	u.mu.Lock()
 	u.BestEntry = when
-	u.Unlock()
+	u.mu.Unlock()
 }
 
 // setBestEntry() will set BestEntry for the user, if given time is closer to target
 // time than previously stored time value
 func (u *User) setBestEntry(when time.Time) {
+	if u == nil {
+		return
+	}
 	llog := u.l.With().
 		Str("func", "setBestEntry").
 		Time("oldEntry", u.BestEntry).
@@ -270,7 +312,7 @@ func (u *User) setBestEntry(when time.Time) {
 
 	if tfBefore == oldTimeCode || tfEarly == oldTimeCode {
 		if tfEarly == newTimeCode {
-			if IsAfter(when, u.BestEntry) {
+			if isAfter(when, u.BestEntry) {
 				llog.Debug().Msg("Both times are before, but new time is better - setting time")
 				u.setBestEntryWithLock(when)
 				return
@@ -300,7 +342,7 @@ func (u *User) setBestEntry(when time.Time) {
 			llog.Debug().Msg("Old time on time, but new time after - skipping")
 			return
 		}
-		if IsBefore(when, u.BestEntry) {
+		if isBefore(when, u.BestEntry) {
 			llog.Debug().Msg("Both times on time, but new one is better - setting time")
 			u.setBestEntryWithLock(when)
 			return
@@ -322,7 +364,7 @@ func (u *User) setBestEntry(when time.Time) {
 			u.setBestEntryWithLock(when)
 			return
 		}
-		if IsBefore(when, u.BestEntry) {
+		if isBefore(when, u.BestEntry) {
 			llog.Debug().Msg("Both times are after, but new time is better - setting time")
 			u.setBestEntryWithLock(when)
 			return
@@ -335,63 +377,80 @@ func (u *User) setBestEntry(when time.Time) {
 }
 
 func (u *User) getTaxTotal() int {
-	u.RLock()
-	defer u.RUnlock()
+	if u == nil {
+		return 0
+	}
+	u.mu.RLock()
+	defer u.mu.RUnlock()
 	return u.Taxes.Total
 }
 
 func (u *User) getTaxTimes() int {
-	u.RLock()
-	defer u.RUnlock()
+	if u == nil {
+		return 0
+	}
+	u.mu.RLock()
+	defer u.mu.RUnlock()
 	return u.Taxes.Times
 }
 
 func (u *User) addTax(tax int) {
-	u.Lock()
+	if u == nil {
+		return
+	}
+	u.mu.Lock()
 	u.Taxes.Total += tax
 	if tax > 0 { // we don't want the counter to step up if tax is 0
 		u.Taxes.Times++
 	}
-	u.Unlock()
+	u.mu.Unlock()
 }
 
 func (u *User) getBonusTotal() int {
-	u.RLock()
-	defer u.RUnlock()
+	if u == nil {
+		return 0
+	}
+	u.mu.RLock()
+	defer u.mu.RUnlock()
 	return u.Bonuses.Total
 }
 
 func (u *User) getBonusTimes() int {
-	u.RLock()
-	defer u.RUnlock()
+	if u == nil {
+		return 0
+	}
+	u.mu.RLock()
+	defer u.mu.RUnlock()
 	return u.Bonuses.Times
 }
 
 func (u *User) addBonus(bonus int) {
-	u.Lock()
+	if u == nil {
+		return
+	}
+	u.mu.Lock()
 	u.Bonuses.Total += bonus
 	if bonus > 0 { // we don't want the counter to step up if bonus is 0
 		u.Bonuses.Times++
 	}
-	u.Unlock()
+	u.mu.Unlock()
 }
 
 func (u *User) getMissTotal() int {
-	u.RLock()
-	defer u.RUnlock()
+	if u == nil {
+		return 0
+	}
+	u.mu.RLock()
+	defer u.mu.RUnlock()
 	return u.Misses.Total
 }
 
-// Temporarily removed due to unused
-//func (u *User) getMissTimes() int {
-//	u.RLock()
-//	defer u.RUnlock()
-//	return u.Misses.Times
-//}
-
 func (u *User) addMiss() {
-	u.Lock()
+	if u == nil {
+		return
+	}
+	u.mu.Lock()
 	u.Misses.Times++
 	u.Misses.Total++
-	u.Unlock()
+	u.mu.Unlock()
 }

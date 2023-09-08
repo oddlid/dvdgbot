@@ -222,13 +222,14 @@ func TestWinner(t *testing.T) {
 	locked := user.isLocked()
 	if locked {
 		rank := c.getWinnerRank(nick)
+		tx := timexDiff(sd.BotStart, user.getLastEntry())
 		fmt.Printf(
 			"%s: You're locked, as you're #%d, reaching %d points @ %s after %s :)\n",
 			nick,
 			rank+1,
 			getTargetScore(),
 			getLongDate(user.getLastEntry()),
-			timexString(timexDiff(sd.BotStart, user.getLastEntry())),
+			tx.String(),
 		)
 	} else {
 		t.Errorf("User %s expected to be locked", nick)

@@ -7,8 +7,6 @@ import (
 	"strings"
 
 	"github.com/go-chat-bot/bot"
-	// Do NOT run goimports on this file, as it will remove imports where the last part of path does not match pkg name
-	// Use gofmt instead!
 	"github.com/nishanths/go-xkcd/v2"
 )
 
@@ -33,13 +31,6 @@ func xkcdbot(cmd *bot.Cmd) (string, error) {
 			return fmt.Sprintf("Error fetching ID #%d", id), err
 		}
 		return comic.ImageURL, nil
-	// the Random() method seems to have disappeared in v2
-	// case "RANDOM":
-	//	comic, err := xc.Random()
-	//	if err != nil {
-	//		return "Error fetching random comic", nil
-	//	}
-	//	return comic.ImageURL, nil
 	case "LATEST":
 		comic, err := xc.Latest(context.Background())
 		if err != nil {

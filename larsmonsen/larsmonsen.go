@@ -4,39 +4,50 @@ import (
 	"regexp"
 
 	"github.com/go-chat-bot/bot"
+	"github.com/rs/zerolog/log"
+
 	"github.com/oddlid/dvdgbot/quoteshuffle"
 	"github.com/oddlid/dvdgbot/util"
-	"github.com/rs/zerolog/log"
 )
+
+type LarsMonsen struct {
+	qd *quoteshuffle.QuoteData
+	rx *regexp.Regexp
+}
 
 const (
-	plugin    = "LarsMonsen"
-	factsFile = "/tmp/larsmonsenfacts.json"
-	pattern   = "(?i)\\b(lars|monsen)\\b"
-	cmdName   = "larsmonsen"
+	DefaultPattern     = `(?i)\\b(lars|monsen)\\b`
+	DefaultCommandName = `larsmonsen`
+	factsFile          = `/tmp/larsmonsenfacts.json`
 )
 
-var (
-	qd   *quoteshuffle.QuoteData
-	re   = regexp.MustCompile(pattern)
-	_log = log.With().Str("plugin", plugin).Logger()
-)
+func New(fileName, pattern string) (*LarsMonsen, error) {
+	qd, err := quoteshuffle.New(fileName)
+	if err != nil {
+		return nil, err
+	}
 
-func larsmonsen(command *bot.PassiveCmd) (string, error) {
-	if re.MatchString(command.Raw) {
-		return qd.Shuffle(), nil
+	rx, err := regexp.Compile(pattern)
+	if err != nil {
+		return nil, err
+	}
+	return &LarsMonsen{
+		qd: qd,
+		rx: rx,
+	}, nil
+}
+
+func (lm *LarsMonsen) Quote(command *bot.PassiveCmd) (string, error) {
+	if lm.rx.MatchString(command.Raw) {
+		return lm.qd.Shuffle()
 	}
 	return "", nil
 }
 
 func init() {
-	var err error
-	qd, err = quoteshuffle.New(util.EnvDefStr("LARSMONSENFACTS_FILE", factsFile))
-	if err != nil {
-		_log.Error().
-			Err(err).
-			Msg("Error loading facts file")
-		return
+	if lm, err := New(util.EnvDefStr("LARSMONSENFACTS_FILE", factsFile), DefaultPattern); err != nil {
+		log.Error().Err(err).Send()
+	} else {
+		bot.RegisterPassiveCommand(DefaultCommandName, lm.Quote)
 	}
-	bot.RegisterPassiveCommand(cmdName, larsmonsen)
 }

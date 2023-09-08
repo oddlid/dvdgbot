@@ -15,7 +15,7 @@ const (
 func ascii2morse(input string) (string, error) {
 	h := m.NewHacker()
 	morseCode, err := h.Encode(strings.NewReader(input))
-	if nil != err {
+	if err != nil {
 		return "", err
 	}
 	return string(morseCode), nil
@@ -24,7 +24,7 @@ func ascii2morse(input string) (string, error) {
 func morse2ascii(morse string) (string, error) {
 	h := m.NewHacker()
 	ascii, err := h.Decode(strings.NewReader(morse))
-	if nil != err {
+	if err != nil {
 		return "", err
 	}
 	return string(ascii), nil
@@ -36,7 +36,7 @@ func tomorse(cmd *bot.Cmd) (string, error) {
 	}
 
 	morse, err := ascii2morse(strings.Join(cmd.Args, " "))
-	if nil != err {
+	if err != nil {
 		return "", err
 	}
 	return morse, nil
@@ -48,7 +48,7 @@ func frommorse(cmd *bot.Cmd) (string, error) {
 	}
 
 	ascii, err := morse2ascii(strings.Join(cmd.Args, " "))
-	if nil != err {
+	if err != nil {
 		return "", err
 	}
 	return ascii, nil

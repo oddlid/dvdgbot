@@ -190,8 +190,8 @@ func (wd *WatchData) LoadFile(filename string) *WatchData {
 		return wd
 	}
 	defer file.Close()
-	err = wd.Load(file)
-	if err != nil {
+
+	if err = wd.Load(file); err != nil {
 		_log.Error().
 			Err(err).
 			Send()
@@ -361,9 +361,9 @@ func reload() {
 	_wd = NewWatchData().LoadFile(_cfgfile) // will return new instance on error
 }
 
-func clear() {
+func clear() error {
 	_wd = NewWatchData()
-	_wd.SaveFile(_cfgfile)
+	return _wd.SaveFile(_cfgfile)
 }
 
 func add(channel, nick, msgtype, msg string) (string, error) {
@@ -386,8 +386,8 @@ func add(channel, nick, msgtype, msg string) (string, error) {
 		u.SetQMsg(msg)
 		ret = fmt.Sprintf(ret, cmdQuit)
 	}
-	_wd.SaveFile(_cfgfile)
-	return ret, nil
+
+	return ret, _wd.SaveFile(_cfgfile)
 }
 
 func del(channel, nick, msgtype string) (string, error) {
@@ -422,8 +422,7 @@ func del(channel, nick, msgtype string) (string, error) {
 		ret = fmt.Sprintf("%s: Deleted nick %q", plugin, nick)
 	}
 
-	_wd.SaveFile(_cfgfile)
-	return ret, nil
+	return ret, _wd.SaveFile(_cfgfile)
 }
 
 func safeArgs(num int, args []string) []string {
@@ -449,7 +448,7 @@ func userwatch(cmd *bot.Cmd) (string, error) {
 	//	clear ("secret")
 	//
 	// quit and part are synonymous.
-	// del <nick> with no more args deletes the nick alltogether from the map.
+	// del <nick> with no more args deletes the nick altogether from the map.
 	// ls <nick> with no more args shows both messages for join/quit.
 	// ls with no more args shows a list of nicks that have messages set.
 	// clear deletes everything without confirmation
@@ -470,7 +469,9 @@ func userwatch(cmd *bot.Cmd) (string, error) {
 	} else if mtype(args[0], cmdDel) {
 		return del(cmd.Channel, args[1], args[2])
 	} else if mtype(args[0], cmdClear) {
-		clear()
+		if err := clear(); err != nil {
+			return "", err
+		}
 		retmsg = fmt.Sprintf("%s: DB cleared", plugin)
 	} else if mtype(args[0], cmdReload) {
 		reload()

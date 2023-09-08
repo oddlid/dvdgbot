@@ -9,33 +9,30 @@ import (
 	"io"
 	"math/rand"
 	"os"
-	"time"
 
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
 
 const (
-	PLUGIN string = "QuoteShuffle"
+	plugin string = "QuoteShuffle"
 )
 
-var _log = log.With().Str("plugin", PLUGIN).Logger()
-
 type QuoteData struct {
+	zlog     zerolog.Logger
 	FileName string   `json:"-"`
 	Src      []string `json:"src"`
 	Dst      []string `json:"dst"`
 }
 
-func init() {
-	rand.Seed(time.Now().UnixNano())
-}
-
 func New(fileName string) (*QuoteData, error) {
-	qd := &QuoteData{FileName: fileName}
-	return qd, qd.LoadSelf()
+	return (&QuoteData{
+		FileName: fileName,
+		zlog:     log.With().Str("plugin", plugin).Logger(),
+	}).loadSelf()
 }
 
-func (qd *QuoteData) Load(r io.Reader) error {
+func (qd *QuoteData) load(r io.Reader) error {
 	jb, err := io.ReadAll(r)
 	if err != nil {
 		return err
@@ -43,30 +40,29 @@ func (qd *QuoteData) Load(r io.Reader) error {
 	return json.Unmarshal(jb, qd)
 }
 
-func (qd *QuoteData) LoadFile(fileName string) (*QuoteData, error) {
+func (qd *QuoteData) loadFile(fileName string) (*QuoteData, error) {
 	file, err := os.Open(fileName)
 	if err != nil {
 		return qd, err
 	}
 	defer file.Close()
-	err = qd.Load(file)
-	if err != nil {
+
+	if err = qd.load(file); err != nil {
 		return qd, err
 	}
-	_log.Debug().
+	qd.zlog.Debug().
 		Str("filename", fileName).
 		Msg("Quotes loaded from file")
-	return qd, err
+
+	return qd, nil
 }
 
-func (qd *QuoteData) LoadSelf() error {
-	_, err := qd.LoadFile(qd.FileName)
-	return err
+func (qd *QuoteData) loadSelf() (*QuoteData, error) {
+	return qd.loadFile(qd.FileName)
 }
 
-func (qd *QuoteData) Save(w io.Writer) (int, error) {
+func (qd *QuoteData) save(w io.Writer) (int, error) {
 	jb, err := json.MarshalIndent(qd, "", "\t")
-	// jb, err := json.Marshal(qd)
 	if err != nil {
 		return 0, err
 	}
@@ -74,85 +70,59 @@ func (qd *QuoteData) Save(w io.Writer) (int, error) {
 	return w.Write(jb)
 }
 
-func (qd *QuoteData) SaveFile(fileName string) error {
+func (qd *QuoteData) saveFile(fileName string) error {
 	file, err := os.Create(fileName)
 	if err != nil {
 		return err
 	}
 	defer file.Close()
-	n, err := qd.Save(file)
+	n, err := qd.save(file)
 	if err != nil {
 		return err
 	}
-	_log.Debug().
+	qd.zlog.Debug().
 		Str("filename", fileName).
 		Int("bytes", n).
 		Msg("File saved")
 	return nil
 }
 
-func (qd *QuoteData) SaveSelf() error {
-	return qd.SaveFile(qd.FileName)
+func (qd *QuoteData) saveSelf() error {
+	return qd.saveFile(qd.FileName)
 }
 
-func (qd *QuoteData) Add(item string) *QuoteData {
-	qd.Src = append(qd.Src, item)
-	return qd
-}
-
-func (qd *QuoteData) Clear() *QuoteData {
-	qd.Src = nil
-	qd.Dst = nil
-	return qd
-}
-
-func (qd *QuoteData) SetList(lst []string) *QuoteData {
-	qd.Src = lst
-	return qd
-}
-
-func (qd *QuoteData) Len() int {
+func (qd *QuoteData) len() int {
 	if nil == qd.Src {
 		return -1
 	}
 	return len(qd.Src)
 }
 
-func (qd *QuoteData) Unused() int {
-	return qd.Len()
-}
-
-func (qd *QuoteData) Used() int {
-	if nil == qd.Dst {
-		return -1
-	}
-	return len(qd.Dst)
-}
-
 func (qd *QuoteData) rndID() int {
+	//nolint:gosec // sufficient
 	return rand.Intn(len(qd.Src))
 }
 
 func (qd *QuoteData) validID(id int) bool {
-	if nil == qd.Src {
+	if qd.Src == nil {
 		return false
 	}
-	if id < 0 || id >= qd.Len() {
+	if id < 0 || id >= qd.len() {
 		return false
 	}
 	return true
 }
 
 func (qd *QuoteData) del(id int) {
-	qd.Src[id] = qd.Src[qd.Len()-1]
+	qd.Src[id] = qd.Src[qd.len()-1]
 	// qd.Src[qd.Len()-1] = "" // not really needed?
-	qd.Src = qd.Src[:qd.Len()-1]
+	qd.Src = qd.Src[:qd.len()-1]
 }
 
-func (qd *QuoteData) Next() string {
+func (qd *QuoteData) next() string {
 	// Restore backing slice if it's been exhausted from previous runs
-	if nil == qd.Src || qd.Len() == 0 {
-		if nil != qd.Dst && len(qd.Dst) > 0 {
+	if qd.len() == 0 {
+		if len(qd.Dst) > 0 {
 			qd.Src = qd.Dst
 			qd.Dst = nil
 		} else {
@@ -176,23 +146,7 @@ func (qd *QuoteData) Next() string {
 	return item
 }
 
-// Shuffle() is just a wrapper that calls Next() and then SaveSelf()
-func (qd *QuoteData) Shuffle() string {
-	item := qd.Next()
-	qd.SaveSelf()
-	return item
-}
-
-// Reset() puts whatever is in Dst in Src, and then sets Dst to nil
-func (qd *QuoteData) Reset() {
-	qd.Src = append(qd.Src, qd.Dst...)
-	qd.Dst = nil
-}
-
-func (qd *QuoteData) ResetAndSave() {
-	if qd.FileName == "" {
-		return
-	}
-	qd.Reset()
-	qd.SaveSelf()
+// Shuffle() is just a wrapper that calls next() and then saveSelf()
+func (qd *QuoteData) Shuffle() (string, error) {
+	return qd.next(), qd.saveSelf()
 }

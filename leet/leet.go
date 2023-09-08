@@ -138,7 +138,7 @@ func timeFrame(t time.Time) TimeCode {
 
 func withinTimeFrame(t time.Time) (bool, TimeCode) {
 	tf := timeFrame(t)
-	if tfEarly == tf || tfOnTime == tf || tfLate == tf {
+	if tf == tfEarly || tf == tfOnTime || tf == tfLate {
 		return true, tf
 	}
 	return false, tf
@@ -150,7 +150,7 @@ func getScoreForEntry(t time.Time) (int, TimeCode) {
 	var points int
 	tf := timeFrame(t)
 
-	if tfEarly == tf || tfLate == tf {
+	if tf == tfEarly || tf == tfLate {
 		points = -1
 	} else {
 		points = 0 // will be set later if on time
@@ -215,13 +215,14 @@ func leet(cmd *bot.Cmd) (string, error) {
 	c := _scoreData.get(cmd.Channel)
 	u := c.get(cmd.User.Nick)
 	if u.isLocked() {
+		tx := timexDiff(_scoreData.BotStart, u.getLastEntry())
 		return fmt.Sprintf(
 			"%s: You're locked, as you're #%d, reaching %d points @ %s after %s :)",
 			u.Nick,
 			c.getWinnerRank(u.Nick),
 			u.getScore(),
 			getLongDate(u.getLastEntry()),
-			timexString(timexDiff(_scoreData.BotStart, u.getLastEntry())),
+			tx.String(),
 		), nil
 	}
 
@@ -276,7 +277,7 @@ func getTargetScore() int {
 		_minute = defaultMinute
 	}
 	intVal, err := strconv.Atoi(fmt.Sprintf("%d%02d", _hour, _minute))
-	if nil != err {
+	if err != nil {
 		_log.Error().
 			Err(err).
 			Msg("Conversion error")
@@ -287,8 +288,7 @@ func getTargetScore() int {
 	return _targetScore
 }
 
-// Helper to make sure we get the right time, even when adjusting across
-// time borders
+// Helper to make sure we get the right time, even when adjusting across time borders
 func getCronTime(hour, minute int, adjust time.Duration) (int, int) {
 	now := time.Now()
 	then := time.Date(

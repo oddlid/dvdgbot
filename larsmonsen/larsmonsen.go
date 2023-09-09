@@ -4,10 +4,8 @@ import (
 	"regexp"
 
 	"github.com/go-chat-bot/bot"
-	"github.com/rs/zerolog/log"
 
 	"github.com/oddlid/dvdgbot/quoteshuffle"
-	"github.com/oddlid/dvdgbot/util"
 )
 
 type LarsMonsen struct {
@@ -18,7 +16,8 @@ type LarsMonsen struct {
 const (
 	DefaultPattern     = `(?i)\\b(lars|monsen)\\b`
 	DefaultCommandName = `larsmonsen`
-	factsFile          = `/tmp/larsmonsenfacts.json`
+	DefaultFactsFile   = `/tmp/larsmonsenfacts.json`
+	FactsFileEnvVar    = `LARSMONSENFACTS_FILE`
 )
 
 func New(fileName, pattern string) (*LarsMonsen, error) {
@@ -44,10 +43,10 @@ func (lm *LarsMonsen) Quote(command *bot.PassiveCmd) (string, error) {
 	return "", nil
 }
 
-func init() {
-	if lm, err := New(util.EnvDefStr("LARSMONSENFACTS_FILE", factsFile), DefaultPattern); err != nil {
-		log.Error().Err(err).Send()
-	} else {
-		bot.RegisterPassiveCommand(DefaultCommandName, lm.Quote)
-	}
-}
+// func init() {
+// 	if lm, err := New(util.EnvDefStr("LARSMONSENFACTS_FILE", DefaultFactsFile), DefaultPattern); err != nil {
+// 		log.Error().Err(err).Send()
+// 	} else {
+// 		bot.RegisterPassiveCommand(DefaultCommandName, lm.Quote)
+// 	}
+// }

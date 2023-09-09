@@ -16,24 +16,24 @@ type Channel struct {
 	tmpNicks      []string // used for storing who participated in a specific round. Reset after calculation.
 	InspectionTax float64  `json:"inspection_tax"` // percentage, but no check if outside of 0-100
 	OvershootTax  int      `json:"overshoot_tax"`  // interval for how much to deduct if user scores past target
-	sync.RWMutex
+	mu            sync.RWMutex
 	InspectAlways bool `json:"inspect_always"` // if false, only inspect if random value between 0 and 6 matches current weekday
 	TaxLoners     bool `json:"tax_loners"`     // If to inspect and tax when only one contestant in a round
 	PostTaxFail   bool `json:"post_tax_fail"`  // If to post to channel why taxation does NOT happen
 }
 
 func (c *Channel) get(nick string) *User {
-	c.RLock()
+	c.mu.RLock()
 	user, found := c.Users[nick]
-	c.RUnlock()
+	c.mu.RUnlock()
 	if !found {
 		user = &User{
 			Nick: nick,
 			l:    c.l.With().Str("user", nick).Logger(),
 		}
-		c.Lock()
+		c.mu.Lock()
 		c.Users[nick] = user
-		c.Unlock()
+		c.mu.Unlock()
 	}
 	return user
 }
@@ -55,23 +55,23 @@ func (c *Channel) postTaxFail(msg string) error {
 }
 
 func (c *Channel) hasPendingScores() bool {
-	c.RLock()
-	defer c.RUnlock()
+	c.mu.RLock()
+	defer c.mu.RUnlock()
 	return c.tmpNicks != nil && len(c.tmpNicks) > 0
 }
 
 func (c *Channel) addNickForRound(nick string) int {
 	// first in gets the most points, last the least
-	c.Lock()
-	defer c.Unlock()
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	c.tmpNicks = append(c.tmpNicks, nick)
 	return len(c.tmpNicks) // returns first place, second place etc
 }
 
 func (c *Channel) clearNicksForRound() {
-	c.Lock()
+	c.mu.Lock()
 	c.tmpNicks = nil
-	c.Unlock()
+	c.mu.Unlock()
 }
 
 // GetScoresForRound returns a map of nicks with the scores for this round
@@ -81,11 +81,11 @@ func (c *Channel) getScoresForRound() map[string]int {
 		return nil
 	}
 	nickMap := make(map[string]int)
-	c.Lock()
+	c.mu.Lock()
 	for i := range c.tmpNicks {
 		nickMap[c.tmpNicks[i]] = maxScore - i
 	}
-	c.Unlock()
+	c.mu.Unlock()
 
 	return nickMap
 }
@@ -120,13 +120,13 @@ func (c *Channel) getLowestTotalInRound() int {
 // that takes you past the limit, we need to check all users here.
 func (c *Channel) getOverShooters(limit int) UserMap {
 	ret := make(UserMap)
-	c.RLock()
+	c.mu.RLock()
 	for nick, user := range c.Users {
 		if user.getScore() >= limit {
 			ret[nick] = user
 		}
 	}
-	c.RUnlock()
+	c.mu.RUnlock()
 	return ret
 }
 
@@ -150,12 +150,12 @@ func (c *Channel) getOverShootTaxFor(limit, points int) int {
 
 // TODO: Rewrite tests, as they are the only ones using this method, so we can remove this
 func (c *Channel) punishOverShooters(limit int, umap UserMap) UserMap {
-	c.Lock()
+	c.mu.Lock()
 	for _, user := range umap {
 		tax := c.getOverShootTaxFor(limit, user.getScore())
 		user.addScore(-tax)
 	}
-	c.Unlock()
+	c.mu.Unlock()
 	return umap
 }
 
@@ -200,26 +200,26 @@ func (c *Channel) getMaxRoundTax() float64 {
 // But anyways, this is better anyways, so keeping it.
 
 func (c *Channel) setInspectAlways(doInspect bool) {
-	c.Lock()
+	c.mu.Lock()
 	c.InspectAlways = doInspect
-	c.Unlock()
+	c.mu.Unlock()
 }
 
 func (c *Channel) getInspectAlways() bool {
-	c.RLock()
-	defer c.RUnlock()
+	c.mu.RLock()
+	defer c.mu.RUnlock()
 	return c.InspectAlways
 }
 
 func (c *Channel) setTaxLoners(doTax bool) {
-	c.Lock()
+	c.mu.Lock()
 	c.TaxLoners = doTax
-	c.Unlock()
+	c.mu.Unlock()
 }
 
 func (c *Channel) getTaxLoners() bool {
-	c.RLock()
-	defer c.RUnlock()
+	c.mu.RLock()
+	defer c.mu.RUnlock()
 	return c.TaxLoners
 }
 

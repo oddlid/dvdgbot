@@ -23,17 +23,6 @@ const (
 	plugin           = "LeetBot"                        // Just used for log output
 )
 
-type TimeCode int
-
-// Constants for signaling how much off timeframe
-const (
-	tfBefore TimeCode = iota // more than a minute before
-	tfEarly                  // less than a minute before
-	tfOnTime                 // within correct minute
-	tfLate                   // less than a minute late
-	tfAfter                  // more than a minute late
-)
-
 var (
 	_hour            int
 	_minute          int
@@ -118,27 +107,27 @@ func getShortTime(t time.Time) string {
 func timeFrame(t time.Time) TimeCode {
 	th := t.Hour()
 	if th < _hour {
-		return tfBefore
+		return tcBefore
 	} else if th > _hour {
-		return tfAfter
+		return tcAfter
 	}
 	// now we know we're within the correct hour
 	tm := t.Minute()
 	if tm < _minute-1 {
-		return tfBefore
+		return tcBefore
 	} else if tm > _minute+1 {
-		return tfAfter
+		return tcAfter
 	} else if tm == _minute-1 {
-		return tfEarly
+		return tcEarly
 	} else if tm == _minute+1 {
-		return tfLate
+		return tcLate
 	}
-	return tfOnTime
+	return tcOnTime
 }
 
 func withinTimeFrame(t time.Time) (bool, TimeCode) {
 	tf := timeFrame(t)
-	if tf == tfEarly || tf == tfOnTime || tf == tfLate {
+	if tf == tcEarly || tf == tcOnTime || tf == tcLate {
 		return true, tf
 	}
 	return false, tf
@@ -150,7 +139,7 @@ func getScoreForEntry(t time.Time) (int, TimeCode) {
 	var points int
 	tf := timeFrame(t)
 
-	if tf == tfEarly || tf == tfLate {
+	if tf == tcEarly || tf == tcLate {
 		points = -1
 	} else {
 		points = 0 // will be set later if on time
@@ -237,11 +226,11 @@ func leet(cmd *bot.Cmd) (string, error) {
 	// at this point, data might have changed, and should be saved
 	var delay int
 	switch tf {
-	case tfEarly:
+	case tcEarly:
 		delay = 3
-	case tfOnTime:
+	case tcOnTime:
 		delay = 2
-	case tfLate:
+	case tcLate:
 		delay = 1
 	default:
 		delay = 0

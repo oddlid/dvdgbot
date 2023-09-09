@@ -310,8 +310,8 @@ func (u *User) setBestEntry(when time.Time) {
 
 	oldTimeCode := timeFrame(u.BestEntry)
 
-	if tfBefore == oldTimeCode || tfEarly == oldTimeCode {
-		if tfEarly == newTimeCode {
+	if tcBefore == oldTimeCode || tcEarly == oldTimeCode {
+		if tcEarly == newTimeCode {
 			if isAfter(when, u.BestEntry) {
 				llog.Debug().Msg("Both times are before, but new time is better - setting time")
 				u.setBestEntryWithLock(when)
@@ -320,12 +320,12 @@ func (u *User) setBestEntry(when time.Time) {
 			llog.Debug().Msg("Both times are before, but old one is better - skipping")
 			return
 		}
-		if tfOnTime == newTimeCode {
+		if tcOnTime == newTimeCode {
 			llog.Debug().Msg("Old time is before, new time is on time - setting time")
 			u.setBestEntryWithLock(when)
 			return
 		}
-		if tfLate == newTimeCode {
+		if tcLate == newTimeCode {
 			llog.Debug().Msg("Old time is before, new time is after - skipping")
 			return
 		}
@@ -333,12 +333,12 @@ func (u *User) setBestEntry(when time.Time) {
 		return
 	}
 
-	if tfOnTime == oldTimeCode {
-		if tfEarly == newTimeCode {
+	if tcOnTime == oldTimeCode {
+		if tcEarly == newTimeCode {
 			llog.Debug().Msg("Old time on time, but new is before - skipping")
 			return
 		}
-		if tfLate == newTimeCode {
+		if tcLate == newTimeCode {
 			llog.Debug().Msg("Old time on time, but new time after - skipping")
 			return
 		}
@@ -351,15 +351,15 @@ func (u *User) setBestEntry(when time.Time) {
 		return
 	}
 
-	if tfLate == oldTimeCode || tfAfter == oldTimeCode {
-		if tfEarly == newTimeCode {
+	if tcLate == oldTimeCode || tcAfter == oldTimeCode {
+		if tcEarly == newTimeCode {
 			// Most likely, an early time will be closer to the target than a
 			// late time
 			llog.Debug().Msg("Old time is after, new time before - setting time")
 			u.setBestEntryWithLock(when)
 			return
 		}
-		if tfOnTime == newTimeCode {
+		if tcOnTime == newTimeCode {
 			llog.Debug().Msg("Old time is after, new time is on time - setting time")
 			u.setBestEntryWithLock(when)
 			return

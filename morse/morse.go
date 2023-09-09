@@ -9,62 +9,63 @@ import (
 )
 
 const (
-	plugin = "MorseConverter"
+	plugin    = `MorseConverter`
+	A2MCmd    = `tomorse`
+	A2MDesc   = `Convert ASCII input to morse`
+	A2MParams = `<input>`
+	M2ACmd    = `frommorse`
+	M2ADesc   = `Convert morse input to ASCII`
+	M2AParams = `<input>`
 )
 
-func ascii2morse(input string) (string, error) {
-	h := m.NewHacker()
-	morseCode, err := h.Encode(strings.NewReader(input))
+type Bot struct {
+	h m.Hacker
+}
+
+func NewBot() *Bot {
+	return &Bot{
+		h: m.NewHacker(),
+	}
+}
+
+func (b *Bot) ascii2morse(input string) (string, error) {
+	morseCode, err := b.h.Encode(strings.NewReader(input))
 	if err != nil {
 		return "", err
 	}
 	return string(morseCode), nil
 }
 
-func morse2ascii(morse string) (string, error) {
-	h := m.NewHacker()
-	ascii, err := h.Decode(strings.NewReader(morse))
+func (b *Bot) morse2ascii(morse string) (string, error) {
+	ascii, err := b.h.Decode(strings.NewReader(morse))
 	if err != nil {
 		return "", err
 	}
 	return string(ascii), nil
 }
 
-func tomorse(cmd *bot.Cmd) (string, error) {
-	if len(cmd.Args) < 1 {
-		return fmt.Sprintf("%s: No input. Usage: !tomorse <input>", plugin), nil
-	}
+func usage(cmd, params string) string {
+	return fmt.Sprintf("%s: No input. Usage: !%s %s", plugin, cmd, params)
+}
 
-	morse, err := ascii2morse(strings.Join(cmd.Args, " "))
+func (b *Bot) ToMorse(cmd *bot.Cmd) (string, error) {
+	if len(cmd.Args) < 1 {
+		return usage(A2MCmd, A2MParams), nil
+	}
+	morse, err := b.ascii2morse(strings.Join(cmd.Args, " "))
 	if err != nil {
 		return "", err
 	}
 	return morse, nil
 }
 
-func frommorse(cmd *bot.Cmd) (string, error) {
+func (b *Bot) FromMorse(cmd *bot.Cmd) (string, error) {
 	if len(cmd.Args) < 1 {
-		return fmt.Sprintf("%s: No input. Usage: !frommorse <input>", plugin), nil
+		return usage(M2ACmd, M2AParams), nil
 	}
-
-	ascii, err := morse2ascii(strings.Join(cmd.Args, " "))
+	ascii, err := b.morse2ascii(strings.Join(cmd.Args, " "))
 	if err != nil {
 		return "", err
 	}
 	return ascii, nil
-}
-
-func init() {
-	bot.RegisterCommand(
-		"tomorse",
-		"Convert ASCII input to morse",
-		"<input>",
-		tomorse,
-	)
-	bot.RegisterCommand(
-		"frommorse",
-		"Convert morse input to ASCII",
-		"<input>",
-		frommorse,
-	)
 }

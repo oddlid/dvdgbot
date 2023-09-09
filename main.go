@@ -8,23 +8,25 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/go-chat-bot/bot"
 	"github.com/go-chat-bot/bot/irc"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
 
-	_ "github.com/oddlid/dvdgbot/larsmonsen"
+	"github.com/oddlid/dvdgbot/larsmonsen"
 	"github.com/oddlid/dvdgbot/leet"
-	_ "github.com/oddlid/dvdgbot/morse"
-	_ "github.com/oddlid/dvdgbot/timestamp"
-	_ "github.com/oddlid/dvdgbot/xkcdbot"
+	"github.com/oddlid/dvdgbot/morse"
+	"github.com/oddlid/dvdgbot/timestamp"
+	"github.com/oddlid/dvdgbot/util"
+	"github.com/oddlid/dvdgbot/xkcdbot"
 	// "github.com/oddlid/dvdgbot/userwatch"
 )
 
 const (
-	defaultAddress string = "irc.oftc.net:6697"
-	defaultUser    string = "leetbot"
-	defaultNick    string = "leetbot"
+	defaultAddress = "irc.oftc.net:6697"
+	defaultUser    = "leetbot"
+	defaultNick    = "leetbot"
 )
 
 const (
@@ -38,6 +40,15 @@ const (
 	optLogLevel = `log-level`
 )
 
+const (
+	envIRCServer = `IRC_SERVER`
+	envIRCUser   = `IRC_USER`
+	envICRNick   = `IRC_NICK`
+	envIRCPass   = `IRC_PASS`
+	envIRCTLS    = `IRC_TLS`
+	envDebug     = `DEBUG`
+)
+
 var (
 	CommitID   string
 	BuildDate  string
@@ -45,19 +56,19 @@ var (
 	BinaryName string
 )
 
-func entryPoint(ctx *cli.Context) error {
-	c := &irc.Config{
-		Channels: ctx.StringSlice(optChannel),
-		Server:   ctx.String(optServer),
-		User:     ctx.String(optUser),
-		Nick:     ctx.String(optNick),
-		Password: ctx.String(optPass),
-		UseTLS:   ctx.Bool(optTLS),
-		Debug:    ctx.Bool(optDebug),
+func entryPoint(cCtx *cli.Context) error {
+	c := irc.Config{
+		Channels: cCtx.StringSlice(optChannel),
+		Server:   cCtx.String(optServer),
+		User:     cCtx.String(optUser),
+		Nick:     cCtx.String(optNick),
+		Password: cCtx.String(optPass),
+		UseTLS:   cCtx.Bool(optTLS),
+		Debug:    cCtx.Bool(optDebug),
 	}
 
 	// If using leet, but not userwatch, do this:
-	b, _ := irc.SetUpConn(c) // ic should be second return param here if using userwatch module
+	b, _ := irc.SetUpConn(&c) // ic should be second return param here if using userwatch module
 	leet.SetParentBot(b)
 
 	// Or, if using both leet and userwatch, do like this instead, and comment the above:
@@ -68,11 +79,56 @@ func entryPoint(ctx *cli.Context) error {
 	// }
 	// leet.SetParentBot(b)
 
-	irc.Run(nil) // pass nil here, as we passed c to SetUpConn, so config is done
+	lm, err := larsmonsen.New(
+		util.EnvDefStr(
+			larsmonsen.FactsFileEnvVar,
+			larsmonsen.DefaultFactsFile,
+		),
+		larsmonsen.DefaultPattern,
+	)
+	if err != nil {
+		return err
+	}
+	bot.RegisterPassiveCommand(
+		larsmonsen.DefaultCommandName,
+		lm.Quote,
+	)
 
-	// If not using neither leet nor userwatch, you can comment out both ways to setup above,
-	// including the line with "irc.Run(nil)", and replace it with the below:
-	// irc.Run(c)
+	mb := morse.NewBot()
+	bot.RegisterCommand(
+		morse.A2MCmd,
+		morse.A2MDesc,
+		morse.A2MParams,
+		mb.ToMorse,
+	)
+	bot.RegisterCommand(
+		morse.M2ACmd,
+		morse.M2ADesc,
+		morse.M2AParams,
+		mb.FromMorse,
+	)
+
+	bot.RegisterCommand(
+		timestamp.DefaultCommandName,
+		timestamp.Description,
+		timestamp.Params,
+		timestamp.Prepend,
+	)
+
+	xb := xkcdbot.New(
+		3*time.Second,
+		func() context.Context {
+			return cCtx.Context
+		},
+	)
+	bot.RegisterCommand(
+		xkcdbot.DefaultCommandName,
+		xkcdbot.Description,
+		xkcdbot.Params,
+		xb.Fetch,
+	)
+
+	irc.Run(nil) // pass nil here, as we passed c to SetUpConn, so config is done
 
 	return nil
 }
@@ -124,31 +180,31 @@ func newApp() *cli.App {
 		Action: entryPoint,
 		Flags: []cli.Flag{
 			&cli.StringFlag{
-				Name:    optLogLevel,
+				Name:    optServer,
 				Aliases: []string{"s"},
 				Usage:   "IRC server `address`",
 				Value:   defaultAddress,
-				EnvVars: []string{"IRC_SERVER"},
+				EnvVars: []string{envIRCServer},
 			},
 			&cli.StringFlag{
 				Name:    optUser,
 				Aliases: []string{"u"},
 				Usage:   "IRC `username`",
 				Value:   defaultUser,
-				EnvVars: []string{"IRC_USER"},
+				EnvVars: []string{envIRCUser},
 			},
 			&cli.StringFlag{
 				Name:    optNick,
 				Aliases: []string{"n"},
 				Usage:   "IRC `nick`",
 				Value:   defaultNick,
-				EnvVars: []string{"IRC_NICK"},
+				EnvVars: []string{envICRNick},
 			},
 			&cli.StringFlag{
 				Name:    optPass,
 				Aliases: []string{"p"},
 				Usage:   "IRC server `password`",
-				EnvVars: []string{"IRC_PASS"},
+				EnvVars: []string{envIRCPass},
 			},
 			&cli.StringSliceFlag{
 				Name:    optChannel,
@@ -160,7 +216,7 @@ func newApp() *cli.App {
 				Aliases: []string{"t"},
 				Usage:   "Use secure TLS connection",
 				Value:   true,
-				EnvVars: []string{"IRC_TLS"},
+				EnvVars: []string{envIRCTLS},
 			},
 			&cli.StringFlag{
 				Name:    optLogLevel,
@@ -172,7 +228,7 @@ func newApp() *cli.App {
 				Name:    optDebug,
 				Aliases: []string{"d"},
 				Usage:   "Run in debug mode",
-				EnvVars: []string{"DEBUG"},
+				EnvVars: []string{envDebug},
 			},
 		},
 	}

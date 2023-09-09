@@ -43,7 +43,6 @@ func (brs BonusReturns) TotalBonus() int {
 
 func (brs BonusReturns) String() string {
 	var sb strings.Builder
-	// sb.WriteString(fmt.Sprintf("+%d points bonus! : ", brs.TotalBonus()))
 	fmt.Fprintf(&sb, "+%d points bonus! : ", brs.TotalBonus())
 	for i, br := range brs {
 		if i > 0 {
@@ -81,14 +80,9 @@ func (bc BonusConfig) calc(ts string) BonusReturn {
 	// Search for substring match
 	bc.matchPos = strings.Index(ts, bc.SubString)
 
-	// There is no substring match, so we return 0 and don't bother with other checks
+	// There is no substring match, so we return empty value and don't bother with other checks
 	if bc.matchPos == -1 {
-		// return 0
-		return BonusReturn{
-			Match:  "",
-			Msg:    "",
-			Points: 0,
-		}
+		return BonusReturn{}
 	}
 
 	// We have a match, but don't care about the substring position,
@@ -147,17 +141,17 @@ func (bcs BonusConfigs) calc(ts string) BonusReturns {
 	return brs
 }
 
-func (bcs BonusConfigs) hasValue(val int) (bool, *BonusConfig) {
+func (bcs BonusConfigs) hasValue(val int) (bool, BonusConfig) {
 	for _, bc := range bcs {
 		ival, err := strconv.Atoi(bc.SubString)
 		if err != nil {
 			continue
 		}
 		if ival == val {
-			return true, &bc
+			return true, bc
 		}
 	}
-	return false, nil
+	return false, BonusConfig{}
 }
 
 func (bcs *BonusConfigs) load(r io.Reader) error {

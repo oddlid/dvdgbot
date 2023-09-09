@@ -5,17 +5,41 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/go-chat-bot/bot"
 	"github.com/nishanths/go-xkcd/v2"
 )
 
-var xc *xkcd.Client
+const (
+	DefaultCommandName = `xkcd`
+	Description        = `Fetch an XKCD comic image`
+	Params             = `get <ID>|random|latest`
+)
 
-func xkcdbot(cmd *bot.Cmd) (string, error) {
+type ContextFunc func() context.Context
+
+type Bot struct {
+	client  *xkcd.Client
+	ctxFunc ContextFunc
+	timeout time.Duration
+}
+
+func New(timeout time.Duration, ctxFunc ContextFunc) *Bot {
+	return &Bot{
+		client:  xkcd.NewClient(),
+		ctxFunc: ctxFunc,
+		timeout: timeout,
+	}
+}
+
+func (b *Bot) Fetch(cmd *bot.Cmd) (string, error) {
 	if len(cmd.Args) < 1 {
 		return "Too few params. Usage: !xkcd get <ID>|latest", nil
 	}
+
+	ctx, cancel := context.WithTimeout(b.ctxFunc(), b.timeout)
+	defer cancel()
 
 	switch strings.ToUpper(cmd.Args[0]) {
 	case "GET":
@@ -26,28 +50,18 @@ func xkcdbot(cmd *bot.Cmd) (string, error) {
 		if err != nil {
 			return "ID for GET must be a number", err
 		}
-		comic, err := xc.Get(context.Background(), id)
+		comic, err := b.client.Get(ctx, id)
 		if err != nil {
-			return fmt.Sprintf("Error fetching ID #%d", id), err
+			return fmt.Sprintf("Error fetching ID #%d: %s", id, err.Error()), err
 		}
 		return comic.ImageURL, nil
 	case "LATEST":
-		comic, err := xc.Latest(context.Background())
+		comic, err := b.client.Latest(ctx)
 		if err != nil {
-			return "Error fetching latest comic", err
+			return fmt.Sprintf("Error fetching latest comic: %s", err.Error()), err
 		}
 		return comic.ImageURL, nil
+	default:
+		return "", nil
 	}
-
-	return "", nil
-}
-
-func init() {
-	xc = xkcd.NewClient()
-	bot.RegisterCommand(
-		"xkcd",
-		"Fetch an XKCD comic image",
-		"get <ID>|random|latest",
-		xkcdbot,
-	)
 }

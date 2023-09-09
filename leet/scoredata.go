@@ -57,7 +57,6 @@ func (s *ScoreData) loadFile(filename string) (*ScoreData, error) {
 
 func (s *ScoreData) save(w io.Writer) (int, error) {
 	jb, err := json.MarshalIndent(s, "", "\t")
-	// jb, err := json.Marshal(s)
 	if err != nil {
 		return 0, err
 	}
@@ -343,10 +342,10 @@ func (s *ScoreData) tryScore(c *Channel, u *User, t time.Time) (bool, string) {
 		missTmpl += fmt.Sprintf(" (but: %s)", brs)
 	}
 
-	if tfEarly == tf {
+	if tcEarly == tf {
 		u.addMiss()
 		return true, fmt.Sprintf(missTmpl, "early")
-	} else if tfLate == tf {
+	} else if tcLate == tf {
 		u.addMiss()
 		return true, fmt.Sprintf(missTmpl, "late")
 	}

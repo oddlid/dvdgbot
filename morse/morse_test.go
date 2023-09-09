@@ -6,7 +6,7 @@ import (
 
 func TestAscii2Morse(t *testing.T) {
 	str := "SOS"
-	morse, err := ascii2morse(str)
+	morse, err := NewBot().ascii2morse(str)
 	if err != nil {
 		t.Error(err)
 	}
@@ -15,7 +15,7 @@ func TestAscii2Morse(t *testing.T) {
 
 func TestMorse2Ascii(t *testing.T) {
 	str := "... --- ..."
-	ascii, err := morse2ascii(str)
+	ascii, err := NewBot().morse2ascii(str)
 	if err != nil {
 		t.Error(err)
 	}

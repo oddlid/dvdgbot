@@ -1,4 +1,4 @@
-package leet
+package l33t
 
 import (
 	"errors"

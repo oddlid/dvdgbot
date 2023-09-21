@@ -25,11 +25,11 @@ var (
 
 func getData() *ScoreData {
 	// in case this is run via gotest.sh, then we'd have a copy of real data here to use
-	if nil != _scoreData && !_scoreData.isEmpty() {
+	if _scoreData != nil && !_scoreData.isEmpty() {
 		return _scoreData
 	}
 
-	if nil == _scoreData {
+	if _scoreData == nil {
 		_scoreData = newScoreData()
 	}
 
@@ -303,7 +303,7 @@ func TestUserSort(t *testing.T) {
 	var pu *User
 	fmt.Printf("\nWinners, sorted:\n")
 	for _, v := range ws {
-		if nil == pu {
+		if pu == nil {
 			pu = v
 		} else if v.LastEntry.Before(pu.LastEntry) {
 			t.Errorf("%s is after %s", v.LastEntry, pu.LastEntry)

@@ -16,7 +16,7 @@ type ScoreTracker struct {
 type User struct {
 	l         zerolog.Logger
 	LastEntry time.Time    `json:"last_entry"` // time of last !1337 post that resulted in a score, positive or negative
-	BestEntry time.Time    `json:"best_entry"` // tighhtest to 1337, or whatever...
+	BestEntry time.Time    `json:"best_entry"` // tightest to 1337, or whatever...
 	Nick      string       `json:"nick"`       // duplicate of map key, but we need to have it here as well sometimes
 	Taxes     ScoreTracker `json:"taxes"`      // hos much tax over time
 	Bonuses   ScoreTracker `json:"bonuses"`    // how much bonuses over time

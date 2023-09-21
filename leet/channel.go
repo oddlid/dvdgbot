@@ -98,7 +98,7 @@ func (c *Channel) mergeScoresForRound(newScores map[string]int) {
 
 // Find the lowest total points for the users who participated in the current round
 func (c *Channel) getLowestTotalInRound() int {
-	if nil == c.tmpNicks || len(c.tmpNicks) == 0 {
+	if c.tmpNicks == nil || len(c.tmpNicks) == 0 {
 		c.l.Debug().
 			Str("func", "getLowestTotalInRound").
 			Msg("tmpNicks is empty, bailing out")
@@ -173,8 +173,7 @@ func (c *Channel) getMaxRoundTax() float64 {
 		llog.Debug().
 			Int("lowestTotal", lowestTotal).
 			Msg("Lowest total is below 1, bailing out")
-		err := c.postTaxFail("No tax today, as we have a participant with less than 1 points")
-		if nil != err {
+		if err := c.postTaxFail("No tax today, as we have a participant with less than 1 points"); err != nil {
 			llog.Error().Err(err).Send()
 		}
 		return 0
@@ -184,8 +183,7 @@ func (c *Channel) getMaxRoundTax() float64 {
 		llog.Debug().
 			Float64("maxTax", maxTax).
 			Msg("Calculated tax points is negative, bailing out")
-		err := c.postTaxFail(fmt.Sprintf("No tax today: Lowest total = %d, Percent = %f - which amounts to %f", lowestTotal, c.InspectionTax, maxTax))
-		if nil != err {
+		if err := c.postTaxFail(fmt.Sprintf("No tax today: Lowest total = %d, Percent = %f - which amounts to %f", lowestTotal, c.InspectionTax, maxTax)); err != nil {
 			llog.Error().Err(err).Send()
 		}
 		return 0
@@ -231,7 +229,7 @@ func (c *Channel) shouldInspect() bool {
 		return true
 	}
 	// We could have something like this to only tax when more than 1 contestant
-	if nil == c.tmpNicks || (!c.getTaxLoners() && len(c.tmpNicks) < 2) {
+	if c.tmpNicks == nil || (!c.getTaxLoners() && len(c.tmpNicks) < 2) {
 		llog.Debug().Msg("Configured to NOT tax loners")
 		return false
 	}
@@ -248,8 +246,7 @@ func (c *Channel) shouldInspect() bool {
 		Msg("To inspect or not...")
 
 	if !doInspect {
-		err := c.postTaxFail(fmt.Sprintf("No tax today :) Weekday = %d, random = %d", wd, rnd))
-		if nil != err {
+		if err := c.postTaxFail(fmt.Sprintf("No tax today :) Weekday = %d, random = %d", wd, rnd)); err != nil {
 			llog.Error().Err(err).Send()
 		}
 	}
@@ -269,8 +266,7 @@ func (c *Channel) randomInspect() (int, int) {
 		llog.Debug().
 			Float64("maxTax", maxTax).
 			Msg("Tax below 1, returning")
-		err := c.postTaxFail(fmt.Sprintf("No tax today. Calculated tax was: %f", maxTax))
-		if nil != err {
+		if err := c.postTaxFail(fmt.Sprintf("No tax today. Calculated tax was: %f", maxTax)); err != nil {
 			llog.Error().Err(err).Send()
 		}
 		return -1, 0

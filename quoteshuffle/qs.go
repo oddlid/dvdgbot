@@ -92,7 +92,7 @@ func (qd *QuoteData) saveSelf() error {
 }
 
 func (qd *QuoteData) len() int {
-	if nil == qd.Src {
+	if qd.Src == nil {
 		return -1
 	}
 	return len(qd.Src)

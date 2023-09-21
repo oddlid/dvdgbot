@@ -321,7 +321,7 @@ func scheduleNtpCheck(hour, minute int, server string) bool {
 	}
 
 	llog.Info().Msg("Setting up cronjob")
-	if nil == _cron {
+	if _cron == nil {
 		_cron = cron.New()
 	}
 

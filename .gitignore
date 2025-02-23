@@ -3,3 +3,5 @@ cfg/
 *.json
 .DS_Store
 .golangci.yml
+.devenv
+.direnv
